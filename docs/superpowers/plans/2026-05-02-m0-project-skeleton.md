@@ -320,10 +320,34 @@ Expected: three commits.
 ## Task 9: Create nies-app crate with stub main
 
 **Files:**
+- Modify: `Cargo.toml` (workspace root)
 - Create: `crates/nies-app/Cargo.toml`
 - Create: `crates/nies-app/src/main.rs`
 
-- [ ] **Step 1: Create the crate**
+> **Note (deviation from earlier plan revision):** Cargo loads the full workspace manifest before applying `-p` filters, so listing yet-to-exist crates in `members` breaks every cargo command. As a result, `crates/nies-app` and `crates/nies-web` were removed from the workspace `members` list in Unit 2's commit. This task **adds `crates/nies-app` back**.
+
+- [ ] **Step 1: Add `crates/nies-app` back to workspace members**
+
+Edit `Cargo.toml` (workspace root). The `members` list currently reads:
+
+```toml
+members = [
+    "crates/nies-core",
+    "crates/nies-ui",
+]
+```
+
+Update to:
+
+```toml
+members = [
+    "crates/nies-core",
+    "crates/nies-ui",
+    "crates/nies-app",
+]
+```
+
+- [ ] **Step 2: Create the crate directory**
 
 ```bash
 mkdir -p crates/nies-app/src
@@ -353,7 +377,7 @@ pollster = "0.4"
 unused_must_use = "deny"
 ```
 
-- [ ] **Step 2: Write a stub main.rs that compiles**
+- [ ] **Step 3: Write a stub main.rs that compiles**
 
 Write `crates/nies-app/src/main.rs`:
 
@@ -364,12 +388,12 @@ fn main() {
 }
 ```
 
-- [ ] **Step 3: Verify the crate builds**
+- [ ] **Step 4: Verify the crate builds**
 
 Run: `cargo build -p nies-app`
 Expected: builds successfully (will download winit/wgpu/etc. on first run).
 
-- [ ] **Step 4: Verify the stub runs**
+- [ ] **Step 5: Verify the stub runs**
 
 Run: `RUST_LOG=info cargo run -p nies-app`
 Expected: prints `[INFO  nies_app] nies-app starting` then exits cleanly.
@@ -590,10 +614,36 @@ Expected: four commits.
 ## Task 12: Create nies-web crate (cdylib + WASM entry)
 
 **Files:**
+- Modify: `Cargo.toml` (workspace root)
 - Create: `crates/nies-web/Cargo.toml`
 - Create: `crates/nies-web/src/lib.rs`
 
-- [ ] **Step 1: Create the crate**
+> **Note (deviation from earlier plan revision):** see the same note on Task 9. The workspace `members` list was reduced in Unit 2; this task adds `crates/nies-web` back.
+
+- [ ] **Step 1: Add `crates/nies-web` back to workspace members**
+
+Edit `Cargo.toml` (workspace root). The `members` list currently reads:
+
+```toml
+members = [
+    "crates/nies-core",
+    "crates/nies-ui",
+    "crates/nies-app",
+]
+```
+
+Update to:
+
+```toml
+members = [
+    "crates/nies-core",
+    "crates/nies-ui",
+    "crates/nies-app",
+    "crates/nies-web",
+]
+```
+
+- [ ] **Step 2: Create the crate**
 
 ```bash
 mkdir -p crates/nies-web/src
@@ -634,7 +684,7 @@ web-sys = { version = "0.3", features = [
 unused_must_use = "deny"
 ```
 
-- [ ] **Step 2: Write a placeholder lib.rs**
+- [ ] **Step 3: Write a placeholder lib.rs**
 
 Write `crates/nies-web/src/lib.rs`:
 
@@ -651,7 +701,7 @@ pub fn start() {
 }
 ```
 
-- [ ] **Step 3: Verify it builds for the WASM target**
+- [ ] **Step 4: Verify it builds for the WASM target**
 
 Run: `cargo build -p nies-web --target wasm32-unknown-unknown`
 Expected: builds successfully.

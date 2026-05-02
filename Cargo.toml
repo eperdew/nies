@@ -3,8 +3,6 @@ resolver = "3"
 members = [
     "crates/nies-core",
     "crates/nies-ui",
-    "crates/nies-app",
-    "crates/nies-web",
 ]
 
 [workspace.package]

@@ -1,0 +1,20 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/nies-core",
+    "crates/nies-ui",
+    "crates/nies-app",
+    "crates/nies-web",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.86"
+authors = ["Eric Perdew"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/eperdew/nies"
+publish = false
+
+[workspace.dependencies]
+log = "0.4"

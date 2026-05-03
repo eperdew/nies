@@ -1,0 +1,19 @@
+[package]
+name = "nies-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+nies-core = { path = "../nies-core" }
+nies-ui = { path = "../nies-ui" }
+log.workspace = true
+env_logger = "0.11"
+winit = "0.30"
+wgpu = "29"
+pollster = "0.4"
+
+[lints.rust]
+unused_must_use = "deny"

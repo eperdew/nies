@@ -138,3 +138,130 @@ fn run_single_case(case: &TestCase) -> Result<(), String> {
 fn opcode_a9_lda_imm() {
     run_opcode_tests(0xA9);
 }
+
+// Load/Store family
+#[test]
+fn opcode_a5_lda_zp() {
+    run_opcode_tests(0xA5);
+}
+#[test]
+fn opcode_b5_lda_zpx() {
+    run_opcode_tests(0xB5);
+}
+#[test]
+fn opcode_ad_lda_abs() {
+    run_opcode_tests(0xAD);
+}
+#[test]
+fn opcode_bd_lda_absx() {
+    run_opcode_tests(0xBD);
+}
+#[test]
+fn opcode_b9_lda_absy() {
+    run_opcode_tests(0xB9);
+}
+#[test]
+fn opcode_a1_lda_indx() {
+    run_opcode_tests(0xA1);
+}
+#[test]
+fn opcode_b1_lda_indy() {
+    run_opcode_tests(0xB1);
+}
+
+#[test]
+fn opcode_a2_ldx_imm() {
+    run_opcode_tests(0xA2);
+}
+#[test]
+fn opcode_a6_ldx_zp() {
+    run_opcode_tests(0xA6);
+}
+#[test]
+fn opcode_b6_ldx_zpy() {
+    run_opcode_tests(0xB6);
+}
+#[test]
+fn opcode_ae_ldx_abs() {
+    run_opcode_tests(0xAE);
+}
+#[test]
+fn opcode_be_ldx_absy() {
+    run_opcode_tests(0xBE);
+}
+
+#[test]
+fn opcode_a0_ldy_imm() {
+    run_opcode_tests(0xA0);
+}
+#[test]
+fn opcode_a4_ldy_zp() {
+    run_opcode_tests(0xA4);
+}
+#[test]
+fn opcode_b4_ldy_zpx() {
+    run_opcode_tests(0xB4);
+}
+#[test]
+fn opcode_ac_ldy_abs() {
+    run_opcode_tests(0xAC);
+}
+#[test]
+fn opcode_bc_ldy_absx() {
+    run_opcode_tests(0xBC);
+}
+
+#[test]
+fn opcode_85_sta_zp() {
+    run_opcode_tests(0x85);
+}
+#[test]
+fn opcode_95_sta_zpx() {
+    run_opcode_tests(0x95);
+}
+#[test]
+fn opcode_8d_sta_abs() {
+    run_opcode_tests(0x8D);
+}
+#[test]
+fn opcode_9d_sta_absx() {
+    run_opcode_tests(0x9D);
+}
+#[test]
+fn opcode_99_sta_absy() {
+    run_opcode_tests(0x99);
+}
+#[test]
+fn opcode_81_sta_indx() {
+    run_opcode_tests(0x81);
+}
+#[test]
+fn opcode_91_sta_indy() {
+    run_opcode_tests(0x91);
+}
+
+#[test]
+fn opcode_86_stx_zp() {
+    run_opcode_tests(0x86);
+}
+#[test]
+fn opcode_96_stx_zpy() {
+    run_opcode_tests(0x96);
+}
+#[test]
+fn opcode_8e_stx_abs() {
+    run_opcode_tests(0x8E);
+}
+
+#[test]
+fn opcode_84_sty_zp() {
+    run_opcode_tests(0x84);
+}
+#[test]
+fn opcode_94_sty_zpx() {
+    run_opcode_tests(0x94);
+}
+#[test]
+fn opcode_8c_sty_abs() {
+    run_opcode_tests(0x8C);
+}

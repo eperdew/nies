@@ -5,8 +5,6 @@
 //! cycle count varies on page-cross, the helper also returns whether
 //! a page boundary was crossed.
 
-#![allow(dead_code)]
-
 use crate::bus::BusLike;
 use crate::cpu::Cpu;
 

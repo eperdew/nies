@@ -8,16 +8,174 @@
 
 use crate::bus::BusLike;
 use crate::cpu::Cpu;
+use crate::cpu::addressing as addr;
 use crate::cpu::flags;
 
 pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
     match opcode {
-        0xA9 => lda_imm(cpu, bus),
+        // LDA
+        0xA9 => {
+            let v = addr::fetch_byte(cpu, bus);
+            ld_a(cpu, v);
+        }
+        0xA5 => {
+            let a = addr::zp(cpu, bus);
+            let v = bus.read(a);
+            ld_a(cpu, v);
+        }
+        0xB5 => {
+            let a = addr::zp_x(cpu, bus);
+            let v = bus.read(a);
+            ld_a(cpu, v);
+        }
+        0xAD => {
+            let a = addr::abs(cpu, bus);
+            let v = bus.read(a);
+            ld_a(cpu, v);
+        }
+        0xBD => {
+            let a = addr::abs_x_read(cpu, bus);
+            let v = bus.read(a);
+            ld_a(cpu, v);
+        }
+        0xB9 => {
+            let a = addr::abs_y_read(cpu, bus);
+            let v = bus.read(a);
+            ld_a(cpu, v);
+        }
+        0xA1 => {
+            let a = addr::ind_x(cpu, bus);
+            let v = bus.read(a);
+            ld_a(cpu, v);
+        }
+        0xB1 => {
+            let a = addr::ind_y_read(cpu, bus);
+            let v = bus.read(a);
+            ld_a(cpu, v);
+        }
+        // LDX
+        0xA2 => {
+            let v = addr::fetch_byte(cpu, bus);
+            ld_x(cpu, v);
+        }
+        0xA6 => {
+            let a = addr::zp(cpu, bus);
+            let v = bus.read(a);
+            ld_x(cpu, v);
+        }
+        0xB6 => {
+            let a = addr::zp_y(cpu, bus);
+            let v = bus.read(a);
+            ld_x(cpu, v);
+        }
+        0xAE => {
+            let a = addr::abs(cpu, bus);
+            let v = bus.read(a);
+            ld_x(cpu, v);
+        }
+        0xBE => {
+            let a = addr::abs_y_read(cpu, bus);
+            let v = bus.read(a);
+            ld_x(cpu, v);
+        }
+        // LDY
+        0xA0 => {
+            let v = addr::fetch_byte(cpu, bus);
+            ld_y(cpu, v);
+        }
+        0xA4 => {
+            let a = addr::zp(cpu, bus);
+            let v = bus.read(a);
+            ld_y(cpu, v);
+        }
+        0xB4 => {
+            let a = addr::zp_x(cpu, bus);
+            let v = bus.read(a);
+            ld_y(cpu, v);
+        }
+        0xAC => {
+            let a = addr::abs(cpu, bus);
+            let v = bus.read(a);
+            ld_y(cpu, v);
+        }
+        0xBC => {
+            let a = addr::abs_x_read(cpu, bus);
+            let v = bus.read(a);
+            ld_y(cpu, v);
+        }
+        // STA
+        0x85 => {
+            let a = addr::zp(cpu, bus);
+            bus.write(a, cpu.a);
+        }
+        0x95 => {
+            let a = addr::zp_x(cpu, bus);
+            bus.write(a, cpu.a);
+        }
+        0x8D => {
+            let a = addr::abs(cpu, bus);
+            bus.write(a, cpu.a);
+        }
+        0x9D => {
+            let a = addr::abs_x_rmw(cpu, bus);
+            bus.write(a, cpu.a);
+        }
+        0x99 => {
+            let a = addr::abs_y_rmw(cpu, bus);
+            bus.write(a, cpu.a);
+        }
+        0x81 => {
+            let a = addr::ind_x(cpu, bus);
+            bus.write(a, cpu.a);
+        }
+        0x91 => {
+            let a = addr::ind_y_rmw(cpu, bus);
+            bus.write(a, cpu.a);
+        }
+        // STX
+        0x86 => {
+            let a = addr::zp(cpu, bus);
+            bus.write(a, cpu.x);
+        }
+        0x96 => {
+            let a = addr::zp_y(cpu, bus);
+            bus.write(a, cpu.x);
+        }
+        0x8E => {
+            let a = addr::abs(cpu, bus);
+            bus.write(a, cpu.x);
+        }
+        // STY
+        0x84 => {
+            let a = addr::zp(cpu, bus);
+            bus.write(a, cpu.y);
+        }
+        0x94 => {
+            let a = addr::zp_x(cpu, bus);
+            bus.write(a, cpu.y);
+        }
+        0x8C => {
+            let a = addr::abs(cpu, bus);
+            bus.write(a, cpu.y);
+        }
         _ => panic!(
             "CPU executed unimplemented opcode ${opcode:02X} at PC=${:04X}",
             cpu.pc.wrapping_sub(1)
         ),
     }
+}
+
+fn ld_a(cpu: &mut Cpu, v: u8) {
+    cpu.a = v;
+    set_nz(cpu, v);
+}
+fn ld_x(cpu: &mut Cpu, v: u8) {
+    cpu.x = v;
+    set_nz(cpu, v);
+}
+fn ld_y(cpu: &mut Cpu, v: u8) {
+    cpu.y = v;
+    set_nz(cpu, v);
 }
 
 fn set_nz(cpu: &mut Cpu, val: u8) {
@@ -28,11 +186,4 @@ fn set_nz(cpu: &mut Cpu, val: u8) {
     if val & 0x80 != 0 {
         cpu.p |= flags::FLAG_N;
     }
-}
-
-fn lda_imm<B: BusLike>(cpu: &mut Cpu, bus: &mut B) {
-    let val = bus.read(cpu.pc);
-    cpu.pc = cpu.pc.wrapping_add(1);
-    cpu.a = val;
-    set_nz(cpu, val);
 }

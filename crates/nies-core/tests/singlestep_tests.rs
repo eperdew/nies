@@ -895,3 +895,107 @@ fn opcode_dc_nop_absx() {
 fn opcode_fc_nop_absx() {
     run_opcode_tests(0xFC);
 }
+
+// Stable illegals: LAX (LDA + LDX combined load)
+#[test]
+fn opcode_a3_lax_indx() {
+    run_opcode_tests(0xA3);
+}
+#[test]
+fn opcode_a7_lax_zp() {
+    run_opcode_tests(0xA7);
+}
+#[test]
+fn opcode_af_lax_abs() {
+    run_opcode_tests(0xAF);
+}
+#[test]
+fn opcode_b3_lax_indy() {
+    run_opcode_tests(0xB3);
+}
+#[test]
+fn opcode_b7_lax_zpy() {
+    run_opcode_tests(0xB7);
+}
+#[test]
+fn opcode_bf_lax_absy() {
+    run_opcode_tests(0xBF);
+}
+
+// Stable illegals: SAX (store A AND X)
+#[test]
+fn opcode_83_sax_indx() {
+    run_opcode_tests(0x83);
+}
+#[test]
+fn opcode_87_sax_zp() {
+    run_opcode_tests(0x87);
+}
+#[test]
+fn opcode_8f_sax_abs() {
+    run_opcode_tests(0x8F);
+}
+#[test]
+fn opcode_97_sax_zpy() {
+    run_opcode_tests(0x97);
+}
+
+// Stable illegals: DCP (DEC + CMP combined RMW)
+#[test]
+fn opcode_c3_dcp_indx() {
+    run_opcode_tests(0xC3);
+}
+#[test]
+fn opcode_c7_dcp_zp() {
+    run_opcode_tests(0xC7);
+}
+#[test]
+fn opcode_cf_dcp_abs() {
+    run_opcode_tests(0xCF);
+}
+#[test]
+fn opcode_d3_dcp_indy() {
+    run_opcode_tests(0xD3);
+}
+#[test]
+fn opcode_d7_dcp_zpx() {
+    run_opcode_tests(0xD7);
+}
+#[test]
+fn opcode_db_dcp_absy() {
+    run_opcode_tests(0xDB);
+}
+#[test]
+fn opcode_df_dcp_absx() {
+    run_opcode_tests(0xDF);
+}
+
+// Stable illegals: ISC / ISB (INC + SBC combined RMW)
+#[test]
+fn opcode_e3_isc_indx() {
+    run_opcode_tests(0xE3);
+}
+#[test]
+fn opcode_e7_isc_zp() {
+    run_opcode_tests(0xE7);
+}
+#[test]
+fn opcode_ef_isc_abs() {
+    run_opcode_tests(0xEF);
+}
+#[test]
+fn opcode_f3_isc_indy() {
+    run_opcode_tests(0xF3);
+}
+#[test]
+fn opcode_f7_isc_zpx() {
+    run_opcode_tests(0xF7);
+}
+#[test]
+fn opcode_fb_isc_absy() {
+    run_opcode_tests(0xFB);
+}
+#[test]
+fn opcode_ff_isc_absx() {
+    run_opcode_tests(0xFF);
+}

@@ -749,6 +749,112 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             let _ = bus.read(target); // dummy read at pulled PC pre-increment
             cpu.pc = target.wrapping_add(1);
         }
+        // Stable illegals: LAX (LDA + LDX combined load).
+        0xA3 => {
+            let a = addr::ind_x(cpu, bus);
+            let v = bus.read(a);
+            lax(cpu, v);
+        }
+        0xA7 => {
+            let a = addr::zp(cpu, bus);
+            let v = bus.read(a);
+            lax(cpu, v);
+        }
+        0xAF => {
+            let a = addr::abs(cpu, bus);
+            let v = bus.read(a);
+            lax(cpu, v);
+        }
+        0xB3 => {
+            let a = addr::ind_y_read(cpu, bus);
+            let v = bus.read(a);
+            lax(cpu, v);
+        }
+        0xB7 => {
+            let a = addr::zp_y(cpu, bus);
+            let v = bus.read(a);
+            lax(cpu, v);
+        }
+        0xBF => {
+            let a = addr::abs_y_read(cpu, bus);
+            let v = bus.read(a);
+            lax(cpu, v);
+        }
+        // Stable illegals: SAX (store A AND X; no flag changes).
+        0x83 => {
+            let a = addr::ind_x(cpu, bus);
+            bus.write(a, cpu.a & cpu.x);
+        }
+        0x87 => {
+            let a = addr::zp(cpu, bus);
+            bus.write(a, cpu.a & cpu.x);
+        }
+        0x8F => {
+            let a = addr::abs(cpu, bus);
+            bus.write(a, cpu.a & cpu.x);
+        }
+        0x97 => {
+            let a = addr::zp_y(cpu, bus);
+            bus.write(a, cpu.a & cpu.x);
+        }
+        // Stable illegals: DCP (DEC + CMP combined RMW).
+        0xC3 => {
+            let a = addr::ind_x(cpu, bus);
+            rmw(cpu, bus, a, dcp_value);
+        }
+        0xC7 => {
+            let a = addr::zp(cpu, bus);
+            rmw(cpu, bus, a, dcp_value);
+        }
+        0xCF => {
+            let a = addr::abs(cpu, bus);
+            rmw(cpu, bus, a, dcp_value);
+        }
+        0xD3 => {
+            let a = addr::ind_y_rmw(cpu, bus);
+            rmw(cpu, bus, a, dcp_value);
+        }
+        0xD7 => {
+            let a = addr::zp_x(cpu, bus);
+            rmw(cpu, bus, a, dcp_value);
+        }
+        0xDB => {
+            let a = addr::abs_y_rmw(cpu, bus);
+            rmw(cpu, bus, a, dcp_value);
+        }
+        0xDF => {
+            let a = addr::abs_x_rmw(cpu, bus);
+            rmw(cpu, bus, a, dcp_value);
+        }
+        // Stable illegals: ISC / ISB (INC + SBC combined RMW).
+        0xE3 => {
+            let a = addr::ind_x(cpu, bus);
+            rmw(cpu, bus, a, isc_value);
+        }
+        0xE7 => {
+            let a = addr::zp(cpu, bus);
+            rmw(cpu, bus, a, isc_value);
+        }
+        0xEF => {
+            let a = addr::abs(cpu, bus);
+            rmw(cpu, bus, a, isc_value);
+        }
+        0xF3 => {
+            let a = addr::ind_y_rmw(cpu, bus);
+            rmw(cpu, bus, a, isc_value);
+        }
+        0xF7 => {
+            let a = addr::zp_x(cpu, bus);
+            rmw(cpu, bus, a, isc_value);
+        }
+        0xFB => {
+            let a = addr::abs_y_rmw(cpu, bus);
+            rmw(cpu, bus, a, isc_value);
+        }
+        0xFF => {
+            let a = addr::abs_x_rmw(cpu, bus);
+            rmw(cpu, bus, a, isc_value);
+        }
         // Branches
         0x90 => branch_if(cpu, bus, (cpu.p & flags::FLAG_C) == 0), // BCC
         0xB0 => branch_if(cpu, bus, (cpu.p & flags::FLAG_C) != 0), // BCS
@@ -894,6 +1000,29 @@ fn dec_value(cpu: &mut Cpu, v: u8) -> u8 {
     let result = v.wrapping_sub(1);
     set_nz(cpu, result);
     result
+}
+
+/// LAX: loads both A and X with the same value, sets N+Z. Stable illegal.
+fn lax(cpu: &mut Cpu, v: u8) {
+    cpu.a = v;
+    cpu.x = v;
+    set_nz(cpu, v);
+}
+
+/// DCP: DEC + CMP combined. Decrements memory, then compares A against
+/// the new value. Stable illegal RMW.
+fn dcp_value(cpu: &mut Cpu, v: u8) -> u8 {
+    let new = v.wrapping_sub(1);
+    compare(cpu, cpu.a, new);
+    new
+}
+
+/// ISC / ISB: INC + SBC combined. Increments memory, then SBC with the
+/// new value. Stable illegal RMW.
+fn isc_value(cpu: &mut Cpu, v: u8) -> u8 {
+    let new = v.wrapping_add(1);
+    adc_core(cpu, new ^ 0xFF);
+    new
 }
 
 fn set_nz(cpu: &mut Cpu, val: u8) {

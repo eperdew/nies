@@ -2,3 +2,7 @@
 /dist
 .DS_Store
 *.swp
+
+# Per-developer Claude Code permission overrides. The project-wide
+# settings.json (when added) is committed.
+.claude/settings.local.json

@@ -749,6 +749,24 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             let _ = bus.read(target); // dummy read at pulled PC pre-increment
             cpu.pc = target.wrapping_add(1);
         }
+        // JAM / KIL / HLT — 12 opcodes that hang the CPU. The trace
+        // matches SingleStepTests/65x02: opcode read (already done by
+        // Cpu::step), one read at PC+1, then a bespoke 9-read sequence
+        // touching $FFFE/$FFFF. PC ends at initial+1 (no further advance).
+        // Subsequent Cpu::step calls see cpu.jammed and just tick the bus.
+        0x02 | 0x12 | 0x22 | 0x32 | 0x42 | 0x52 | 0x62 | 0x72 | 0x92 | 0xB2 | 0xD2 | 0xF2 => {
+            cpu.jammed = true;
+            let _ = bus.read(cpu.pc);
+            let _ = bus.read(0xFFFF);
+            let _ = bus.read(0xFFFE);
+            let _ = bus.read(0xFFFE);
+            let _ = bus.read(0xFFFF);
+            let _ = bus.read(0xFFFF);
+            let _ = bus.read(0xFFFF);
+            let _ = bus.read(0xFFFF);
+            let _ = bus.read(0xFFFF);
+            let _ = bus.read(0xFFFF);
+        }
         // Magic-constant illegals: XAA / ANE, LXA / LAX#imm.
         //
         // Real 6502 hardware behavior: A := (A | M) & operand, where M

@@ -1177,3 +1177,53 @@ fn opcode_8b_xaa_imm() {
 fn opcode_ab_lxa_imm() {
     run_opcode_tests(0xAB);
 }
+
+// JAM / KIL / HLT illegal opcodes — hang the CPU
+#[test]
+fn opcode_02_jam() {
+    run_opcode_tests(0x02);
+}
+#[test]
+fn opcode_12_jam() {
+    run_opcode_tests(0x12);
+}
+#[test]
+fn opcode_22_jam() {
+    run_opcode_tests(0x22);
+}
+#[test]
+fn opcode_32_jam() {
+    run_opcode_tests(0x32);
+}
+#[test]
+fn opcode_42_jam() {
+    run_opcode_tests(0x42);
+}
+#[test]
+fn opcode_52_jam() {
+    run_opcode_tests(0x52);
+}
+#[test]
+fn opcode_62_jam() {
+    run_opcode_tests(0x62);
+}
+#[test]
+fn opcode_72_jam() {
+    run_opcode_tests(0x72);
+}
+#[test]
+fn opcode_92_jam() {
+    run_opcode_tests(0x92);
+}
+#[test]
+fn opcode_b2_jam() {
+    run_opcode_tests(0xB2);
+}
+#[test]
+fn opcode_d2_jam() {
+    run_opcode_tests(0xD2);
+}
+#[test]
+fn opcode_f2_jam() {
+    run_opcode_tests(0xF2);
+}

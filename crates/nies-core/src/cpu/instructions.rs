@@ -578,6 +578,35 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             cpu.y = cpu.y.wrapping_sub(1);
             set_nz(cpu, cpu.y);
         }
+        // Status flag ops
+        0x18 => {
+            let _ = bus.read(cpu.pc);
+            cpu.p &= !flags::FLAG_C;
+        }
+        0x38 => {
+            let _ = bus.read(cpu.pc);
+            cpu.p |= flags::FLAG_C;
+        }
+        0x58 => {
+            let _ = bus.read(cpu.pc);
+            cpu.p &= !flags::FLAG_I;
+        }
+        0x78 => {
+            let _ = bus.read(cpu.pc);
+            cpu.p |= flags::FLAG_I;
+        }
+        0xB8 => {
+            let _ = bus.read(cpu.pc);
+            cpu.p &= !flags::FLAG_V;
+        }
+        0xD8 => {
+            let _ = bus.read(cpu.pc);
+            cpu.p &= !flags::FLAG_D;
+        }
+        0xF8 => {
+            let _ = bus.read(cpu.pc);
+            cpu.p |= flags::FLAG_D;
+        }
         // Transfer (register-to-register)
         0xAA => {
             let _ = bus.read(cpu.pc);

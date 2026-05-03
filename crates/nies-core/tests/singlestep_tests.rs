@@ -745,3 +745,33 @@ fn opcode_ba_tsx() {
 fn opcode_9a_txs() {
     run_opcode_tests(0x9A);
 }
+
+// Status flag ops
+#[test]
+fn opcode_18_clc() {
+    run_opcode_tests(0x18);
+}
+#[test]
+fn opcode_38_sec() {
+    run_opcode_tests(0x38);
+}
+#[test]
+fn opcode_58_cli() {
+    run_opcode_tests(0x58);
+}
+#[test]
+fn opcode_78_sei() {
+    run_opcode_tests(0x78);
+}
+#[test]
+fn opcode_b8_clv() {
+    run_opcode_tests(0xB8);
+}
+#[test]
+fn opcode_d8_cld() {
+    run_opcode_tests(0xD8);
+}
+#[test]
+fn opcode_f8_sed() {
+    run_opcode_tests(0xF8);
+}

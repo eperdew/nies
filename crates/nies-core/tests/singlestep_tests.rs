@@ -365,3 +365,70 @@ fn opcode_41_eor_indx() {
 fn opcode_51_eor_indy() {
     run_opcode_tests(0x51);
 }
+
+// Arithmetic family (ADC, SBC)
+#[test]
+fn opcode_69_adc_imm() {
+    run_opcode_tests(0x69);
+}
+#[test]
+fn opcode_65_adc_zp() {
+    run_opcode_tests(0x65);
+}
+#[test]
+fn opcode_75_adc_zpx() {
+    run_opcode_tests(0x75);
+}
+#[test]
+fn opcode_6d_adc_abs() {
+    run_opcode_tests(0x6D);
+}
+#[test]
+fn opcode_7d_adc_absx() {
+    run_opcode_tests(0x7D);
+}
+#[test]
+fn opcode_79_adc_absy() {
+    run_opcode_tests(0x79);
+}
+#[test]
+fn opcode_61_adc_indx() {
+    run_opcode_tests(0x61);
+}
+#[test]
+fn opcode_71_adc_indy() {
+    run_opcode_tests(0x71);
+}
+
+#[test]
+fn opcode_e9_sbc_imm() {
+    run_opcode_tests(0xE9);
+}
+#[test]
+fn opcode_e5_sbc_zp() {
+    run_opcode_tests(0xE5);
+}
+#[test]
+fn opcode_f5_sbc_zpx() {
+    run_opcode_tests(0xF5);
+}
+#[test]
+fn opcode_ed_sbc_abs() {
+    run_opcode_tests(0xED);
+}
+#[test]
+fn opcode_fd_sbc_absx() {
+    run_opcode_tests(0xFD);
+}
+#[test]
+fn opcode_f9_sbc_absy() {
+    run_opcode_tests(0xF9);
+}
+#[test]
+fn opcode_e1_sbc_indx() {
+    run_opcode_tests(0xE1);
+}
+#[test]
+fn opcode_f1_sbc_indy() {
+    run_opcode_tests(0xF1);
+}

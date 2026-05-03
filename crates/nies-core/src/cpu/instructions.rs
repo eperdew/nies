@@ -278,6 +278,86 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             let v = bus.read(a);
             eor_a(cpu, v);
         }
+        // ADC
+        0x69 => {
+            let v = addr::fetch_byte(cpu, bus);
+            adc_core(cpu, v);
+        }
+        0x65 => {
+            let a = addr::zp(cpu, bus);
+            let v = bus.read(a);
+            adc_core(cpu, v);
+        }
+        0x75 => {
+            let a = addr::zp_x(cpu, bus);
+            let v = bus.read(a);
+            adc_core(cpu, v);
+        }
+        0x6D => {
+            let a = addr::abs(cpu, bus);
+            let v = bus.read(a);
+            adc_core(cpu, v);
+        }
+        0x7D => {
+            let a = addr::abs_x_read(cpu, bus);
+            let v = bus.read(a);
+            adc_core(cpu, v);
+        }
+        0x79 => {
+            let a = addr::abs_y_read(cpu, bus);
+            let v = bus.read(a);
+            adc_core(cpu, v);
+        }
+        0x61 => {
+            let a = addr::ind_x(cpu, bus);
+            let v = bus.read(a);
+            adc_core(cpu, v);
+        }
+        0x71 => {
+            let a = addr::ind_y_read(cpu, bus);
+            let v = bus.read(a);
+            adc_core(cpu, v);
+        }
+        // SBC
+        0xE9 => {
+            let v = addr::fetch_byte(cpu, bus);
+            adc_core(cpu, v ^ 0xFF);
+        }
+        0xE5 => {
+            let a = addr::zp(cpu, bus);
+            let v = bus.read(a);
+            adc_core(cpu, v ^ 0xFF);
+        }
+        0xF5 => {
+            let a = addr::zp_x(cpu, bus);
+            let v = bus.read(a);
+            adc_core(cpu, v ^ 0xFF);
+        }
+        0xED => {
+            let a = addr::abs(cpu, bus);
+            let v = bus.read(a);
+            adc_core(cpu, v ^ 0xFF);
+        }
+        0xFD => {
+            let a = addr::abs_x_read(cpu, bus);
+            let v = bus.read(a);
+            adc_core(cpu, v ^ 0xFF);
+        }
+        0xF9 => {
+            let a = addr::abs_y_read(cpu, bus);
+            let v = bus.read(a);
+            adc_core(cpu, v ^ 0xFF);
+        }
+        0xE1 => {
+            let a = addr::ind_x(cpu, bus);
+            let v = bus.read(a);
+            adc_core(cpu, v ^ 0xFF);
+        }
+        0xF1 => {
+            let a = addr::ind_y_read(cpu, bus);
+            let v = bus.read(a);
+            adc_core(cpu, v ^ 0xFF);
+        }
         _ => panic!(
             "CPU executed unimplemented opcode ${opcode:02X} at PC=${:04X}",
             cpu.pc.wrapping_sub(1)
@@ -309,6 +389,26 @@ fn ora_a(cpu: &mut Cpu, v: u8) {
 fn eor_a(cpu: &mut Cpu, v: u8) {
     cpu.a ^= v;
     set_nz(cpu, cpu.a);
+}
+
+/// ADC core: A := A + operand + C, setting C/V/N/Z. SBC variants call this
+/// with `operand` bitwise-inverted. NES 6502 ignores the D flag.
+fn adc_core(cpu: &mut Cpu, operand: u8) {
+    let a = cpu.a;
+    let c_in = cpu.p & flags::FLAG_C;
+    let sum = (a as u16) + (operand as u16) + (c_in as u16);
+    let result = sum as u8;
+    let carry = sum > 0xFF;
+    let overflow = ((a ^ result) & (operand ^ result) & 0x80) != 0;
+    cpu.p &= !(flags::FLAG_C | flags::FLAG_V);
+    if carry {
+        cpu.p |= flags::FLAG_C;
+    }
+    if overflow {
+        cpu.p |= flags::FLAG_V;
+    }
+    cpu.a = result;
+    set_nz(cpu, result);
 }
 
 fn set_nz(cpu: &mut Cpu, val: u8) {

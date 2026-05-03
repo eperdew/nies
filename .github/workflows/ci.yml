@@ -30,6 +30,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true   # needed for crates/nies-core/tests/data/65x02.tar.zst
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.94.0

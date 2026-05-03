@@ -12,6 +12,12 @@ const SENTINEL_CLEAR: wgpu::Color = wgpu::Color {
     a: 1.0,
 };
 
+enum RenderOutcome {
+    Presented,
+    Reconfigured,
+    Occluded,
+}
+
 struct GpuState {
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
@@ -69,16 +75,19 @@ impl GpuState {
         self.surface.configure(&self.device, &self.config);
     }
 
-    fn render(&mut self) {
+    fn render(&mut self) -> RenderOutcome {
         let frame = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(f) | wgpu::CurrentSurfaceTexture::Suboptimal(f) => f,
             wgpu::CurrentSurfaceTexture::Outdated => {
                 self.surface.configure(&self.device, &self.config);
-                return;
+                return RenderOutcome::Reconfigured;
+            }
+            wgpu::CurrentSurfaceTexture::Occluded => {
+                return RenderOutcome::Occluded;
             }
             other => {
                 log::warn!("surface acquire returned {other:?}");
-                return;
+                return RenderOutcome::Occluded;
             }
         };
         let view = frame
@@ -107,6 +116,7 @@ impl GpuState {
         }
         self.queue.submit(std::iter::once(encoder.finish()));
         frame.present();
+        RenderOutcome::Presented
     }
 }
 
@@ -145,7 +155,19 @@ impl ApplicationHandler for App {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => gpu.resize(size.width, size.height),
             WindowEvent::RedrawRequested => {
-                gpu.render();
+                match gpu.render() {
+                    RenderOutcome::Presented | RenderOutcome::Reconfigured => {
+                        if let Some(w) = &self.window {
+                            w.request_redraw();
+                        }
+                    }
+                    RenderOutcome::Occluded => {
+                        // Don't self-trigger — wait for the OS to tell us we're visible again
+                        // via WindowEvent::Occluded(false) below.
+                    }
+                }
+            }
+            WindowEvent::Occluded(false) => {
                 if let Some(w) = &self.window {
                     w.request_redraw();
                 }

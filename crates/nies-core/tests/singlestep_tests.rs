@@ -709,3 +709,13 @@ fn opcode_68_pla() {
 fn opcode_28_plp() {
     run_opcode_tests(0x28);
 }
+
+// BRK / RTI
+#[test]
+fn opcode_00_brk() {
+    run_opcode_tests(0x00);
+}
+#[test]
+fn opcode_40_rti() {
+    run_opcode_tests(0x40);
+}

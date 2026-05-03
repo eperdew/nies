@@ -578,6 +578,32 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             cpu.y = cpu.y.wrapping_sub(1);
             set_nz(cpu, cpu.y);
         }
+        // BRK
+        0x00 => {
+            // Read padding byte at PC and advance (BRK is treated as 2-byte).
+            let _ = addr::fetch_byte(cpu, bus);
+            // Push PCH, PCL of return address (opcode + 2 == current PC).
+            push(cpu, bus, (cpu.pc >> 8) as u8);
+            push(cpu, bus, (cpu.pc & 0xFF) as u8);
+            // Push P with B|U set.
+            push(cpu, bus, cpu.p | flags::FLAG_B | flags::FLAG_U);
+            // Set I after pushing.
+            cpu.p |= flags::FLAG_I;
+            // Read IRQ vector at $FFFE/$FFFF.
+            let lo = bus.read(0xFFFE) as u16;
+            let hi = bus.read(0xFFFF) as u16;
+            cpu.pc = (hi << 8) | lo;
+        }
+        // RTI
+        0x40 => {
+            let _ = bus.read(cpu.pc); // dummy read at PC
+            let _ = bus.read(0x0100 | cpu.sp as u16); // dummy stack read pre-increment
+            let pulled = pull(cpu, bus);
+            cpu.p = (pulled & !flags::FLAG_B) | flags::FLAG_U;
+            let lo = pull(cpu, bus) as u16;
+            let hi = pull(cpu, bus) as u16;
+            cpu.pc = (hi << 8) | lo;
+        }
         // Stack ops
         0x48 => {
             // PHA: dummy read at PC, push A.

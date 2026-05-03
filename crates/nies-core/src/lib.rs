@@ -12,6 +12,12 @@ pub mod mapper;
 pub mod ppu;
 pub mod snapshot;
 
+// Convenience re-exports for the public API.
+pub use bus::{Bus, BusLike};
+pub use cartridge::{Cartridge, CartridgeError, Mirroring, NesFormat};
+pub use cpu::Cpu;
+pub use mapper::{MapperImpl, MapperKind};
+
 #[cfg(test)]
 mod tests {
     #[test]

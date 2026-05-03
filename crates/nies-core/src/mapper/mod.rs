@@ -12,9 +12,19 @@ use nrom::NromState;
 
 /// Per-mapper interface. Spec §3.7.
 pub trait MapperImpl {
+    /// CPU bus read with side effects. May mutate internal mapper state
+    /// (for stateful mappers like MMC5 with read-triggered registers).
     fn cpu_read(&mut self, addr: u16) -> u8;
+    /// Side-effect-free CPU bus read. Used by `Bus::peek` for debugger
+    /// inspection. Stateful mappers must implement this to skip any
+    /// read-triggered state changes; for read-side-effect-free mappers
+    /// (NROM, etc.) the implementation is the same as `cpu_read`.
+    fn cpu_peek(&self, addr: u16) -> u8;
     fn cpu_write(&mut self, addr: u16, val: u8);
     fn ppu_read(&mut self, addr: u16) -> u8;
+    /// Side-effect-free PPU bus read. Same intent as `cpu_peek` but on
+    /// the PPU bus side; will be exercised by the M9 PPU debugger panels.
+    fn ppu_peek(&self, addr: u16) -> u8;
     fn ppu_write(&mut self, addr: u16, val: u8);
     /// Per-cycle PPU A12 line level. Used by MMC3-class mappers; default
     /// no-op for mappers that don't track A12 transitions.
@@ -57,6 +67,12 @@ impl MapperImpl for MapperKind {
         }
     }
 
+    fn cpu_peek(&self, addr: u16) -> u8 {
+        match self {
+            MapperKind::Nrom(s) => s.cpu_peek(addr),
+        }
+    }
+
     fn cpu_write(&mut self, addr: u16, val: u8) {
         match self {
             MapperKind::Nrom(s) => s.cpu_write(addr, val),
@@ -66,6 +82,12 @@ impl MapperImpl for MapperKind {
     fn ppu_read(&mut self, addr: u16) -> u8 {
         match self {
             MapperKind::Nrom(s) => s.ppu_read(addr),
+        }
+    }
+
+    fn ppu_peek(&self, addr: u16) -> u8 {
+        match self {
+            MapperKind::Nrom(s) => s.ppu_peek(addr),
         }
     }
 

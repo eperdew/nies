@@ -45,10 +45,21 @@ impl Bus {
         }
     }
 
-    /// Read without ticking. For debugger inspection only — bypasses any
-    /// side effects on register-mapped addresses.
+    /// Read without ticking and without side effects. For debugger
+    /// inspection (M9). Register-mapped addresses ($2000-$3FFF PPU,
+    /// $4000-$401F APU + I/O) return open-bus instead of triggering real
+    /// hardware reads. Stateful-mapper read side effects are skipped via
+    /// `MapperImpl::cpu_peek`.
     pub fn peek(&self, addr: u16) -> u8 {
-        self.read_no_tick(addr)
+        match addr {
+            0x0000..=0x1FFF => self.ram[(addr & 0x07FF) as usize],
+            0x2000..=0x3FFF => self.open_bus,
+            0x4000..=0x4015 => self.open_bus,
+            0x4016 => 0,
+            0x4017 => 0,
+            0x4018..=0x401F => self.open_bus,
+            0x4020..=0xFFFF => self.mapper.cpu_peek(addr),
+        }
     }
 
     /// Tick the rest of the system one CPU cycle. Called from every public
@@ -84,6 +95,8 @@ impl Bus {
     }
 
     /// Read a byte from the CPU bus. Ticks the system one CPU cycle.
+    /// May trigger mapper read side effects (e.g., MMC5 expansion-RAM reads
+    /// in future milestones); use `peek` for side-effect-free inspection.
     pub fn read(&mut self, addr: u16) -> u8 {
         self.tick();
         let val = self.read_no_tick(addr);
@@ -91,15 +104,11 @@ impl Bus {
         val
     }
 
-    /// Write a byte to the CPU bus. Ticks the system one CPU cycle.
-    pub fn write(&mut self, addr: u16, val: u8) {
-        self.tick();
-        self.write_no_tick(addr, val);
-    }
-
-    /// Internal: address-decoder read, no tick. Used by both `read` (which
-    /// adds the tick) and `peek` (which doesn't).
-    pub(crate) fn read_no_tick(&self, addr: u16) -> u8 {
+    /// Internal: address-decoder read, no tick. Same side-effect profile as
+    /// `read` (mapper reads may mutate state) — distinct from `peek`. Used
+    /// by `read` (which adds the tick) and by the DMC fetch path inside
+    /// `tick` (which has already ticked the cycle that triggered the fetch).
+    pub(crate) fn read_no_tick(&mut self, addr: u16) -> u8 {
         match addr {
             0x0000..=0x1FFF => self.ram[(addr & 0x07FF) as usize],
             0x2000..=0x3FFF => {
@@ -112,27 +121,14 @@ impl Bus {
             0x4016 => 0,                      // Controller 1: M4 will fill in
             0x4017 => 0,                      // Controller 2 / APU frame counter: M4/M5
             0x4018..=0x401F => self.open_bus, // CPU test mode (unused on retail NES)
-            0x4020..=0xFFFF => {
-                // Cartridge-mapped: PRG-RAM, expansion ROM, PRG-ROM.
-                // We need a non-mut mapper read; do an unchecked clone-elision
-                // by going through the read_no_tick interface on the mapper.
-                // (Mapper trait requires &mut self for cpu_read because some
-                // mappers update internal state on read; but we can take a
-                // clone-of-state copy here for peek. For M1 NROM doesn't have
-                // read side effects, so we use a direct const access.)
-                //
-                // To avoid cloning the whole mapper, we accept that peek
-                // might not be fully side-effect-free for stateful mappers
-                // (post-M1). At M1 we just call cpu_read on a casted mut
-                // reference (safe because we hold &self exclusively).
-                #[allow(unsafe_code)]
-                {
-                    let mapper_mut: *const MapperKind = &self.mapper;
-                    let mapper_mut = mapper_mut as *mut MapperKind;
-                    unsafe { (*mapper_mut).cpu_read(addr) }
-                }
-            }
+            0x4020..=0xFFFF => self.mapper.cpu_read(addr),
         }
+    }
+
+    /// Write a byte to the CPU bus. Ticks the system one CPU cycle.
+    pub fn write(&mut self, addr: u16, val: u8) {
+        self.tick();
+        self.write_no_tick(addr, val);
     }
 
     /// Internal: write the data bus and update the address-decoder side
@@ -168,10 +164,25 @@ impl Bus {
     }
 }
 
-/// Bus interface required by the CPU's dispatch table. Production code
-/// uses `Bus`; tests substitute a flat-memory implementation. The trait
-/// is the *only* thing the CPU sees; concrete bus types add extra state
-/// (PPU/APU/mapper) on the side.
+/// Bus interface required by the CPU's dispatch table.
+///
+/// **This trait exists for one reason: the SingleStepTests/65x02
+/// integration tests.** Those tests operate against a 64 KiB flat memory
+/// model with no PPU / APU / mapper structure, so they need a different
+/// concrete bus type than production code uses. Parameterizing the CPU
+/// over `BusLike` lets us re-use the production opcode handlers verbatim
+/// against the `FlatBus` test harness in `crates/nies-core/tests/singlestep_tests.rs`,
+/// instead of maintaining a parallel CPU implementation just for tests.
+///
+/// Production runtime code (the binaries, save states, debugger, etc.)
+/// always uses the concrete `Bus`. There is no expected use case where a
+/// non-test caller wants to swap in their own `BusLike` impl — if you
+/// find yourself reaching for one, talk to the spec first.
+///
+/// The cost of the abstraction: opcode dispatch is a `match` over `u8`
+/// rather than a static `[fn(...); 256]` table, because Rust generic
+/// function pointers can't live in a static. LLVM compiles the match to
+/// a jump table at the same cost as the function pointer table would have.
 pub trait BusLike {
     fn read(&mut self, addr: u16) -> u8;
     fn write(&mut self, addr: u16, val: u8);
@@ -220,19 +231,19 @@ mod tests {
     fn ram_mirroring() {
         let mut bus = fake_bus();
         bus.write_no_tick(0x0000, 0x42);
-        assert_eq!(bus.read_no_tick(0x0800), 0x42); // $0000 mirrors at $0800
-        assert_eq!(bus.read_no_tick(0x1000), 0x42); // ...and at $1000
-        assert_eq!(bus.read_no_tick(0x1800), 0x42); // ...and at $1800
+        assert_eq!(bus.peek(0x0800), 0x42); // $0000 mirrors at $0800
+        assert_eq!(bus.peek(0x1000), 0x42); // ...and at $1000
+        assert_eq!(bus.peek(0x1800), 0x42); // ...and at $1800
     }
 
     #[test]
     fn power_on_ram_uses_mesen_pattern() {
         let bus = fake_bus();
-        assert_eq!(bus.read_no_tick(0x0000), 0x00);
-        assert_eq!(bus.read_no_tick(0x0008), 0xF7);
-        assert_eq!(bus.read_no_tick(0x0009), 0xEF);
-        assert_eq!(bus.read_no_tick(0x000A), 0xDF);
-        assert_eq!(bus.read_no_tick(0x000F), 0xBF);
+        assert_eq!(bus.peek(0x0000), 0x00);
+        assert_eq!(bus.peek(0x0008), 0xF7);
+        assert_eq!(bus.peek(0x0009), 0xEF);
+        assert_eq!(bus.peek(0x000A), 0xDF);
+        assert_eq!(bus.peek(0x000F), 0xBF);
     }
 
     #[test]
@@ -241,19 +252,19 @@ mod tests {
         // PRG byte 0 is at $8000; a 32 KiB ROM fills $8000-$FFFF.
         // fake_bus fills PRG with `(i as u8)`, so each 256-byte block
         // repeats 0x00..0xFF. $8000 → PRG[0x0000] = 0; $8001 → PRG[0x0001] = 1.
-        assert_eq!(bus.read_no_tick(0x8000), 0);
-        assert_eq!(bus.read_no_tick(0x8001), 1);
+        assert_eq!(bus.peek(0x8000), 0);
+        assert_eq!(bus.peek(0x8001), 1);
         // $C000 → PRG[0x4000]; 0x4000 mod 256 = 0.
-        assert_eq!(bus.read_no_tick(0xC000), 0);
+        assert_eq!(bus.peek(0xC000), 0);
         // Non-aligned offset proves a 32 KiB ROM does not mirror at $8000.
-        assert_eq!(bus.read_no_tick(0xC001), 1);
+        assert_eq!(bus.peek(0xC001), 1);
     }
 
     #[test]
     fn unmapped_apu_read_returns_open_bus() {
         let mut bus = fake_bus();
         bus.write_no_tick(0x0000, 0xAB); // sets open_bus = 0xAB
-        assert_eq!(bus.read_no_tick(0x4015), 0xAB);
+        assert_eq!(bus.peek(0x4015), 0xAB);
     }
 
     #[test]

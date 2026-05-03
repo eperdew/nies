@@ -37,6 +37,13 @@ impl NromState {
     }
 
     pub fn cpu_read(&self, addr: u16) -> u8 {
+        // NROM has no read side effects, so read == peek.
+        self.cpu_peek(addr)
+    }
+
+    /// Side-effect-free CPU-bus read. For NROM this is identical to
+    /// `cpu_read`; the distinction matters for stateful mappers.
+    pub fn cpu_peek(&self, addr: u16) -> u8 {
         match addr {
             0x6000..=0x7FFF if !self.prg_ram.is_empty() => self.prg_ram[(addr - 0x6000) as usize],
             0x8000..=0xFFFF => {
@@ -59,6 +66,12 @@ impl NromState {
     }
 
     pub fn ppu_read(&self, addr: u16) -> u8 {
+        // NROM has no read side effects on the PPU bus either.
+        self.ppu_peek(addr)
+    }
+
+    /// Side-effect-free PPU-bus read. Same body as `ppu_read` for NROM.
+    pub fn ppu_peek(&self, addr: u16) -> u8 {
         match addr {
             0x0000..=0x1FFF => self.chr[addr as usize],
             _ => 0,

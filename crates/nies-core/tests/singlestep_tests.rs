@@ -1233,3 +1233,17 @@ fn opcode_f2_jam() {
 fn opcode_bb_las_absy() {
     run_opcode_tests(0xBB);
 }
+
+/// Comprehensive sweep: run every opcode (0x00..=0xFF) through SingleStepTests.
+/// Each individual opcode also has a `#[test] fn opcode_NN_*()` entry above
+/// for fast localization; this test exists to make "all 256 opcodes pass"
+/// a single named test that can be referenced in the M1 gate.
+#[test]
+fn all_256_opcodes_pass() {
+    for opcode in 0x00u8..=0xFFu8 {
+        run_opcode_tests(opcode);
+        if opcode == 0xFF {
+            break;
+        }
+    }
+}

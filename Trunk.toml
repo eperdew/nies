@@ -1,0 +1,17 @@
+[build]
+target = "crates/nies-web/index.html"
+release = false
+dist = "dist"
+
+[tools]
+# Pin wasm-bindgen-cli to a recent compatible version. Bump deliberately
+# alongside wasm-bindgen in Cargo.toml.
+wasm_bindgen = "0.2.120"
+# Pin wasm-opt for: (a) externref correctness — externref processor must run
+# before wasm-opt; (b) sidestepping the Rust 1.87+ "Bulk memory operations
+# require bulk memory" issue by pinning to a known-good binaryen.
+wasm_opt = "version_120"
+
+[serve]
+addresses = ["127.0.0.1"]
+port = 8080

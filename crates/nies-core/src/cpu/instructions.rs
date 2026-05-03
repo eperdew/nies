@@ -749,6 +749,35 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             let _ = bus.read(target); // dummy read at pulled PC pre-increment
             cpu.pc = target.wrapping_add(1);
         }
+        // Unstable illegals: SHX / SHY / SHA / TAS.
+        //
+        // Real 6502 hardware behavior of these is unstable across chips,
+        // temperature, and bus decoupling. We implement the most-cited
+        // reference behavior (matched by SingleStepTests/65x02 and
+        // Nintendulator): the value stored is `src & (high_of_base + 1)`,
+        // and on a page-cross the effective high byte is corrupted with
+        // that AND. No commercial NES game depends on these opcodes.
+        0x9C => {
+            // SHY abs,X.
+            sh_store(cpu, bus, AbsIndex::X, cpu.y);
+        }
+        0x9E => {
+            // SHX abs,Y.
+            sh_store(cpu, bus, AbsIndex::Y, cpu.x);
+        }
+        0x9F => {
+            // SHA / AHX abs,Y.
+            sh_store(cpu, bus, AbsIndex::Y, cpu.a & cpu.x);
+        }
+        0x93 => {
+            // SHA / AHX (ind),Y.
+            sh_store_ind_y(cpu, bus, cpu.a & cpu.x);
+        }
+        0x9B => {
+            // TAS / SHS abs,Y. S := A & X; store (A & X & (high+1)).
+            cpu.sp = cpu.a & cpu.x;
+            sh_store(cpu, bus, AbsIndex::Y, cpu.a & cpu.x);
+        }
         // Stable illegals: immediate-mode bespoke.
         // ANC: A &= imm; C := bit 7 of A. Two opcodes alias the same op.
         0x0B | 0x2B => {
@@ -1225,6 +1254,57 @@ fn rra_value(cpu: &mut Cpu, v: u8) -> u8 {
     let new = ror_value(cpu, v);
     adc_core(cpu, new);
     new
+}
+
+/// Index register selector for the SH* family helpers.
+enum AbsIndex {
+    X,
+    Y,
+}
+
+/// SHX / SHY / SHA / TAS shared abs,index helper. Reads the abs base, does
+/// the dummy read at the partially-indexed address (matching the abs,X/Y
+/// store cycle profile), then writes `src & (base_high + 1)` to the
+/// "target" — which is the effective address when the index didn't cross
+/// a page, and a corrupted address when it did (high byte ANDed with the
+/// stored value, low byte from the effective address).
+fn sh_store<B: BusLike>(cpu: &mut Cpu, bus: &mut B, idx: AbsIndex, src: u8) {
+    let base = addr::fetch_word(cpu, bus);
+    let index = match idx {
+        AbsIndex::X => cpu.x,
+        AbsIndex::Y => cpu.y,
+    };
+    let effective = base.wrapping_add(index as u16);
+    // Dummy read at the un-fixed (low-byte-only added) address.
+    let _ = bus.read((base & 0xFF00) | (effective & 0x00FF));
+    let high_plus_1 = ((base >> 8) as u8).wrapping_add(1);
+    let value = src & high_plus_1;
+    let target = if (base & 0xFF00) != (effective & 0xFF00) {
+        // Page-crossed: high byte of target gets corrupted with `value`.
+        ((value as u16) << 8) | (effective & 0x00FF)
+    } else {
+        effective
+    };
+    bus.write(target, value);
+}
+
+/// SHA (ind),Y. Same write semantics as the abs,Y variant but addressing
+/// goes through the zero-page indirect pointer, so the "base" is the
+/// pointer's value pre-Y, not an immediate operand.
+fn sh_store_ind_y<B: BusLike>(cpu: &mut Cpu, bus: &mut B, src: u8) {
+    let zp_addr = addr::fetch_byte(cpu, bus);
+    let base = addr::read_word_zp(bus, zp_addr);
+    let effective = base.wrapping_add(cpu.y as u16);
+    // Dummy read at the un-fixed address.
+    let _ = bus.read((base & 0xFF00) | (effective & 0x00FF));
+    let high_plus_1 = ((base >> 8) as u8).wrapping_add(1);
+    let value = src & high_plus_1;
+    let target = if (base & 0xFF00) != (effective & 0xFF00) {
+        ((value as u16) << 8) | (effective & 0x00FF)
+    } else {
+        effective
+    };
+    bus.write(target, value);
 }
 
 fn set_nz(cpu: &mut Cpu, val: u8) {

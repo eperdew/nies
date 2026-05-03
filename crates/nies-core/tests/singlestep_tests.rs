@@ -1145,3 +1145,25 @@ fn opcode_cb_axs_imm() {
 fn opcode_eb_sbc_imm() {
     run_opcode_tests(0xEB);
 }
+
+// Unstable illegals: SHX / SHY / SHA / TAS (store with AND-of-high-byte+1)
+#[test]
+fn opcode_9c_shy_absx() {
+    run_opcode_tests(0x9C);
+}
+#[test]
+fn opcode_9e_shx_absy() {
+    run_opcode_tests(0x9E);
+}
+#[test]
+fn opcode_93_sha_indy() {
+    run_opcode_tests(0x93);
+}
+#[test]
+fn opcode_9f_sha_absy() {
+    run_opcode_tests(0x9F);
+}
+#[test]
+fn opcode_9b_tas_absy() {
+    run_opcode_tests(0x9B);
+}

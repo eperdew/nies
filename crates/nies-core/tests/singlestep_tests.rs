@@ -492,3 +492,13 @@ fn opcode_c4_cpy_zp() {
 fn opcode_cc_cpy_abs() {
     run_opcode_tests(0xCC);
 }
+
+// BIT
+#[test]
+fn opcode_24_bit_zp() {
+    run_opcode_tests(0x24);
+}
+#[test]
+fn opcode_2c_bit_abs() {
+    run_opcode_tests(0x2C);
+}

@@ -428,6 +428,17 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             let v = bus.read(a);
             compare(cpu, cpu.y, v);
         }
+        // BIT
+        0x24 => {
+            let a = addr::zp(cpu, bus);
+            let v = bus.read(a);
+            bit(cpu, v);
+        }
+        0x2C => {
+            let a = addr::abs(cpu, bus);
+            let v = bus.read(a);
+            bit(cpu, v);
+        }
         _ => panic!(
             "CPU executed unimplemented opcode ${opcode:02X} at PC=${:04X}",
             cpu.pc.wrapping_sub(1)
@@ -490,6 +501,17 @@ fn compare(cpu: &mut Cpu, reg: u8, operand: u8) {
         cpu.p |= flags::FLAG_C;
     }
     set_nz(cpu, result);
+}
+
+/// BIT: Z from (A & operand), N from operand bit 7, V from operand bit 6.
+/// A is not modified.
+fn bit(cpu: &mut Cpu, operand: u8) {
+    let result = cpu.a & operand;
+    cpu.p &= !(flags::FLAG_N | flags::FLAG_V | flags::FLAG_Z);
+    if result == 0 {
+        cpu.p |= flags::FLAG_Z;
+    }
+    cpu.p |= operand & (flags::FLAG_N | flags::FLAG_V);
 }
 
 fn set_nz(cpu: &mut Cpu, val: u8) {

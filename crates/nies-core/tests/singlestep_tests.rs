@@ -502,3 +502,88 @@ fn opcode_24_bit_zp() {
 fn opcode_2c_bit_abs() {
     run_opcode_tests(0x2C);
 }
+
+// Shift/Rotate (ASL, LSR, ROL, ROR)
+#[test]
+fn opcode_0a_asl_acc() {
+    run_opcode_tests(0x0A);
+}
+#[test]
+fn opcode_06_asl_zp() {
+    run_opcode_tests(0x06);
+}
+#[test]
+fn opcode_16_asl_zpx() {
+    run_opcode_tests(0x16);
+}
+#[test]
+fn opcode_0e_asl_abs() {
+    run_opcode_tests(0x0E);
+}
+#[test]
+fn opcode_1e_asl_absx() {
+    run_opcode_tests(0x1E);
+}
+
+#[test]
+fn opcode_4a_lsr_acc() {
+    run_opcode_tests(0x4A);
+}
+#[test]
+fn opcode_46_lsr_zp() {
+    run_opcode_tests(0x46);
+}
+#[test]
+fn opcode_56_lsr_zpx() {
+    run_opcode_tests(0x56);
+}
+#[test]
+fn opcode_4e_lsr_abs() {
+    run_opcode_tests(0x4E);
+}
+#[test]
+fn opcode_5e_lsr_absx() {
+    run_opcode_tests(0x5E);
+}
+
+#[test]
+fn opcode_2a_rol_acc() {
+    run_opcode_tests(0x2A);
+}
+#[test]
+fn opcode_26_rol_zp() {
+    run_opcode_tests(0x26);
+}
+#[test]
+fn opcode_36_rol_zpx() {
+    run_opcode_tests(0x36);
+}
+#[test]
+fn opcode_2e_rol_abs() {
+    run_opcode_tests(0x2E);
+}
+#[test]
+fn opcode_3e_rol_absx() {
+    run_opcode_tests(0x3E);
+}
+
+#[test]
+fn opcode_6a_ror_acc() {
+    run_opcode_tests(0x6A);
+}
+#[test]
+fn opcode_66_ror_zp() {
+    run_opcode_tests(0x66);
+}
+#[test]
+fn opcode_76_ror_zpx() {
+    run_opcode_tests(0x76);
+}
+#[test]
+fn opcode_6e_ror_abs() {
+    run_opcode_tests(0x6E);
+}
+#[test]
+fn opcode_7e_ror_absx() {
+    run_opcode_tests(0x7E);
+}

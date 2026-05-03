@@ -439,6 +439,90 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             let v = bus.read(a);
             bit(cpu, v);
         }
+        // ASL
+        0x0A => {
+            let _ = bus.read(cpu.pc); // accumulator-mode dummy read
+            cpu.a = asl_value(cpu, cpu.a);
+        }
+        0x06 => {
+            let a = addr::zp(cpu, bus);
+            rmw(cpu, bus, a, asl_value);
+        }
+        0x16 => {
+            let a = addr::zp_x(cpu, bus);
+            rmw(cpu, bus, a, asl_value);
+        }
+        0x0E => {
+            let a = addr::abs(cpu, bus);
+            rmw(cpu, bus, a, asl_value);
+        }
+        0x1E => {
+            let a = addr::abs_x_rmw(cpu, bus);
+            rmw(cpu, bus, a, asl_value);
+        }
+        // LSR
+        0x4A => {
+            let _ = bus.read(cpu.pc);
+            cpu.a = lsr_value(cpu, cpu.a);
+        }
+        0x46 => {
+            let a = addr::zp(cpu, bus);
+            rmw(cpu, bus, a, lsr_value);
+        }
+        0x56 => {
+            let a = addr::zp_x(cpu, bus);
+            rmw(cpu, bus, a, lsr_value);
+        }
+        0x4E => {
+            let a = addr::abs(cpu, bus);
+            rmw(cpu, bus, a, lsr_value);
+        }
+        0x5E => {
+            let a = addr::abs_x_rmw(cpu, bus);
+            rmw(cpu, bus, a, lsr_value);
+        }
+        // ROL
+        0x2A => {
+            let _ = bus.read(cpu.pc);
+            cpu.a = rol_value(cpu, cpu.a);
+        }
+        0x26 => {
+            let a = addr::zp(cpu, bus);
+            rmw(cpu, bus, a, rol_value);
+        }
+        0x36 => {
+            let a = addr::zp_x(cpu, bus);
+            rmw(cpu, bus, a, rol_value);
+        }
+        0x2E => {
+            let a = addr::abs(cpu, bus);
+            rmw(cpu, bus, a, rol_value);
+        }
+        0x3E => {
+            let a = addr::abs_x_rmw(cpu, bus);
+            rmw(cpu, bus, a, rol_value);
+        }
+        // ROR
+        0x6A => {
+            let _ = bus.read(cpu.pc);
+            cpu.a = ror_value(cpu, cpu.a);
+        }
+        0x66 => {
+            let a = addr::zp(cpu, bus);
+            rmw(cpu, bus, a, ror_value);
+        }
+        0x76 => {
+            let a = addr::zp_x(cpu, bus);
+            rmw(cpu, bus, a, ror_value);
+        }
+        0x6E => {
+            let a = addr::abs(cpu, bus);
+            rmw(cpu, bus, a, ror_value);
+        }
+        0x7E => {
+            let a = addr::abs_x_rmw(cpu, bus);
+            rmw(cpu, bus, a, ror_value);
+        }
         _ => panic!(
             "CPU executed unimplemented opcode ${opcode:02X} at PC=${:04X}",
             cpu.pc.wrapping_sub(1)
@@ -512,6 +596,57 @@ fn bit(cpu: &mut Cpu, operand: u8) {
         cpu.p |= flags::FLAG_Z;
     }
     cpu.p |= operand & (flags::FLAG_N | flags::FLAG_V);
+}
+
+/// 6502 RMW cycle profile for memory operands: read original, dummy-write
+/// original, modify (with side-effects on flags), write modified.
+fn rmw<B: BusLike, F: FnOnce(&mut Cpu, u8) -> u8>(cpu: &mut Cpu, bus: &mut B, addr: u16, op: F) {
+    let original = bus.read(addr);
+    bus.write(addr, original); // dummy write of original
+    let result = op(cpu, original);
+    bus.write(addr, result);
+}
+
+fn asl_value(cpu: &mut Cpu, v: u8) -> u8 {
+    let result = v << 1;
+    cpu.p &= !flags::FLAG_C;
+    if v & 0x80 != 0 {
+        cpu.p |= flags::FLAG_C;
+    }
+    set_nz(cpu, result);
+    result
+}
+
+fn lsr_value(cpu: &mut Cpu, v: u8) -> u8 {
+    let result = v >> 1;
+    cpu.p &= !flags::FLAG_C;
+    if v & 0x01 != 0 {
+        cpu.p |= flags::FLAG_C;
+    }
+    set_nz(cpu, result);
+    result
+}
+
+fn rol_value(cpu: &mut Cpu, v: u8) -> u8 {
+    let old_c = cpu.p & flags::FLAG_C;
+    let result = (v << 1) | old_c;
+    cpu.p &= !flags::FLAG_C;
+    if v & 0x80 != 0 {
+        cpu.p |= flags::FLAG_C;
+    }
+    set_nz(cpu, result);
+    result
+}
+
+fn ror_value(cpu: &mut Cpu, v: u8) -> u8 {
+    let old_c = cpu.p & flags::FLAG_C;
+    let result = (v >> 1) | (old_c << 7);
+    cpu.p &= !flags::FLAG_C;
+    if v & 0x01 != 0 {
+        cpu.p |= flags::FLAG_C;
+    }
+    set_nz(cpu, result);
+    result
 }
 
 fn set_nz(cpu: &mut Cpu, val: u8) {

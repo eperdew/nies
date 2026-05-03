@@ -158,6 +158,126 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             let a = addr::abs(cpu, bus);
             bus.write(a, cpu.y);
         }
+        // AND
+        0x29 => {
+            let v = addr::fetch_byte(cpu, bus);
+            and_a(cpu, v);
+        }
+        0x25 => {
+            let a = addr::zp(cpu, bus);
+            let v = bus.read(a);
+            and_a(cpu, v);
+        }
+        0x35 => {
+            let a = addr::zp_x(cpu, bus);
+            let v = bus.read(a);
+            and_a(cpu, v);
+        }
+        0x2D => {
+            let a = addr::abs(cpu, bus);
+            let v = bus.read(a);
+            and_a(cpu, v);
+        }
+        0x3D => {
+            let a = addr::abs_x_read(cpu, bus);
+            let v = bus.read(a);
+            and_a(cpu, v);
+        }
+        0x39 => {
+            let a = addr::abs_y_read(cpu, bus);
+            let v = bus.read(a);
+            and_a(cpu, v);
+        }
+        0x21 => {
+            let a = addr::ind_x(cpu, bus);
+            let v = bus.read(a);
+            and_a(cpu, v);
+        }
+        0x31 => {
+            let a = addr::ind_y_read(cpu, bus);
+            let v = bus.read(a);
+            and_a(cpu, v);
+        }
+        // ORA
+        0x09 => {
+            let v = addr::fetch_byte(cpu, bus);
+            ora_a(cpu, v);
+        }
+        0x05 => {
+            let a = addr::zp(cpu, bus);
+            let v = bus.read(a);
+            ora_a(cpu, v);
+        }
+        0x15 => {
+            let a = addr::zp_x(cpu, bus);
+            let v = bus.read(a);
+            ora_a(cpu, v);
+        }
+        0x0D => {
+            let a = addr::abs(cpu, bus);
+            let v = bus.read(a);
+            ora_a(cpu, v);
+        }
+        0x1D => {
+            let a = addr::abs_x_read(cpu, bus);
+            let v = bus.read(a);
+            ora_a(cpu, v);
+        }
+        0x19 => {
+            let a = addr::abs_y_read(cpu, bus);
+            let v = bus.read(a);
+            ora_a(cpu, v);
+        }
+        0x01 => {
+            let a = addr::ind_x(cpu, bus);
+            let v = bus.read(a);
+            ora_a(cpu, v);
+        }
+        0x11 => {
+            let a = addr::ind_y_read(cpu, bus);
+            let v = bus.read(a);
+            ora_a(cpu, v);
+        }
+        // EOR
+        0x49 => {
+            let v = addr::fetch_byte(cpu, bus);
+            eor_a(cpu, v);
+        }
+        0x45 => {
+            let a = addr::zp(cpu, bus);
+            let v = bus.read(a);
+            eor_a(cpu, v);
+        }
+        0x55 => {
+            let a = addr::zp_x(cpu, bus);
+            let v = bus.read(a);
+            eor_a(cpu, v);
+        }
+        0x4D => {
+            let a = addr::abs(cpu, bus);
+            let v = bus.read(a);
+            eor_a(cpu, v);
+        }
+        0x5D => {
+            let a = addr::abs_x_read(cpu, bus);
+            let v = bus.read(a);
+            eor_a(cpu, v);
+        }
+        0x59 => {
+            let a = addr::abs_y_read(cpu, bus);
+            let v = bus.read(a);
+            eor_a(cpu, v);
+        }
+        0x41 => {
+            let a = addr::ind_x(cpu, bus);
+            let v = bus.read(a);
+            eor_a(cpu, v);
+        }
+        0x51 => {
+            let a = addr::ind_y_read(cpu, bus);
+            let v = bus.read(a);
+            eor_a(cpu, v);
+        }
         _ => panic!(
             "CPU executed unimplemented opcode ${opcode:02X} at PC=${:04X}",
             cpu.pc.wrapping_sub(1)
@@ -176,6 +296,19 @@ fn ld_x(cpu: &mut Cpu, v: u8) {
 fn ld_y(cpu: &mut Cpu, v: u8) {
     cpu.y = v;
     set_nz(cpu, v);
+}
+
+fn and_a(cpu: &mut Cpu, v: u8) {
+    cpu.a &= v;
+    set_nz(cpu, cpu.a);
+}
+fn ora_a(cpu: &mut Cpu, v: u8) {
+    cpu.a |= v;
+    set_nz(cpu, cpu.a);
+}
+fn eor_a(cpu: &mut Cpu, v: u8) {
+    cpu.a ^= v;
+    set_nz(cpu, cpu.a);
 }
 
 fn set_nz(cpu: &mut Cpu, val: u8) {

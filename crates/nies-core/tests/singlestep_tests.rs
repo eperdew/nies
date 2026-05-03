@@ -265,3 +265,103 @@ fn opcode_94_sty_zpx() {
 fn opcode_8c_sty_abs() {
     run_opcode_tests(0x8C);
 }
+
+// Logic family (AND, ORA, EOR)
+#[test]
+fn opcode_29_and_imm() {
+    run_opcode_tests(0x29);
+}
+#[test]
+fn opcode_25_and_zp() {
+    run_opcode_tests(0x25);
+}
+#[test]
+fn opcode_35_and_zpx() {
+    run_opcode_tests(0x35);
+}
+#[test]
+fn opcode_2d_and_abs() {
+    run_opcode_tests(0x2D);
+}
+#[test]
+fn opcode_3d_and_absx() {
+    run_opcode_tests(0x3D);
+}
+#[test]
+fn opcode_39_and_absy() {
+    run_opcode_tests(0x39);
+}
+#[test]
+fn opcode_21_and_indx() {
+    run_opcode_tests(0x21);
+}
+#[test]
+fn opcode_31_and_indy() {
+    run_opcode_tests(0x31);
+}
+
+#[test]
+fn opcode_09_ora_imm() {
+    run_opcode_tests(0x09);
+}
+#[test]
+fn opcode_05_ora_zp() {
+    run_opcode_tests(0x05);
+}
+#[test]
+fn opcode_15_ora_zpx() {
+    run_opcode_tests(0x15);
+}
+#[test]
+fn opcode_0d_ora_abs() {
+    run_opcode_tests(0x0D);
+}
+#[test]
+fn opcode_1d_ora_absx() {
+    run_opcode_tests(0x1D);
+}
+#[test]
+fn opcode_19_ora_absy() {
+    run_opcode_tests(0x19);
+}
+#[test]
+fn opcode_01_ora_indx() {
+    run_opcode_tests(0x01);
+}
+#[test]
+fn opcode_11_ora_indy() {
+    run_opcode_tests(0x11);
+}
+
+#[test]
+fn opcode_49_eor_imm() {
+    run_opcode_tests(0x49);
+}
+#[test]
+fn opcode_45_eor_zp() {
+    run_opcode_tests(0x45);
+}
+#[test]
+fn opcode_55_eor_zpx() {
+    run_opcode_tests(0x55);
+}
+#[test]
+fn opcode_4d_eor_abs() {
+    run_opcode_tests(0x4D);
+}
+#[test]
+fn opcode_5d_eor_absx() {
+    run_opcode_tests(0x5D);
+}
+#[test]
+fn opcode_59_eor_absy() {
+    run_opcode_tests(0x59);
+}
+#[test]
+fn opcode_41_eor_indx() {
+    run_opcode_tests(0x41);
+}
+#[test]
+fn opcode_51_eor_indy() {
+    run_opcode_tests(0x51);
+}

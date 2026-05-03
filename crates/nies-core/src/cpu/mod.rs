@@ -93,11 +93,11 @@ impl Cpu {
         self.sp = self.sp.wrapping_sub(1);
     }
 
-    /// Service a pending NMI: 7-cycle sequence per spec §3.4.
-    /// Two dummy reads of PC, push PCH/PCL/(P with B clear and U set),
-    /// set the I flag, read the NMI vector at $FFFA/$FFFB, jump to it,
-    /// and clear `nmi_pending` (NMI is edge-triggered).
-    fn service_nmi<B: crate::bus::BusLike>(&mut self, bus: &mut B) {
+    /// Shared interrupt-entry sequence used by both NMI and IRQ.
+    /// 7 bus cycles: two dummy reads of PC, push PCH/PCL/(P with B clear
+    /// and U set), set the I flag, then read the two-byte handler address
+    /// from `vector` / `vector+1` and jump to it.
+    fn service_interrupt<B: crate::bus::BusLike>(&mut self, bus: &mut B, vector: u16) {
         let _ = bus.read(self.pc);
         let _ = bus.read(self.pc);
         let pch = (self.pc >> 8) as u8;
@@ -107,15 +107,27 @@ impl Cpu {
         let p_to_push = (self.p & !flags::FLAG_B) | flags::FLAG_U;
         self.push(bus, p_to_push);
         self.p |= flags::FLAG_I;
-        let lo = bus.read(0xFFFA) as u16;
-        let hi = bus.read(0xFFFB) as u16;
+        let lo = bus.read(vector) as u16;
+        let hi = bus.read(vector.wrapping_add(1)) as u16;
         self.pc = (hi << 8) | lo;
+    }
+
+    /// Service a pending NMI: shared interrupt sequence with the NMI
+    /// vector at $FFFA/$FFFB. NMI is edge-triggered, so `nmi_pending`
+    /// is cleared on entry to the handler.
+    fn service_nmi<B: crate::bus::BusLike>(&mut self, bus: &mut B) {
+        self.service_interrupt(bus, 0xFFFA);
         self.nmi_pending = false;
     }
 
-    fn service_irq<B: crate::bus::BusLike>(&mut self, _bus: &mut B) {
-        // Filled in by Task 37.
-        unimplemented!("IRQ service in Task 37");
+    /// Service a pending IRQ: shared interrupt sequence with the IRQ
+    /// vector at $FFFE/$FFFF. IRQ is level-sensitive, so `irq_pending`
+    /// is intentionally NOT cleared here — the IRQ source (e.g. APU
+    /// frame counter, MMC3 scanline counter) is responsible for
+    /// de-asserting the line once the handler acknowledges. The CPU
+    /// just sets I to mask further IRQs until RTI restores P.
+    fn service_irq<B: crate::bus::BusLike>(&mut self, bus: &mut B) {
+        self.service_interrupt(bus, 0xFFFE);
     }
 }
 
@@ -165,6 +177,10 @@ mod tests {
         bus_with_vectors(None, Some(vector), None)
     }
 
+    fn bus_with_irq_vector(vector: u16) -> Bus {
+        bus_with_vectors(None, None, Some(vector))
+    }
+
     #[test]
     fn reset_loads_pc_from_vector() {
         let mut bus = bus_with_reset_vector(0xC000);
@@ -185,6 +201,54 @@ mod tests {
         let cycle_before = bus.cycle;
         cpu.reset(&mut bus);
         assert_eq!(bus.cycle, cycle_before + 2);
+    }
+
+    #[test]
+    fn irq_pushes_and_jumps_when_i_clear() {
+        let mut bus = bus_with_irq_vector(0xD000);
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x4321;
+        cpu.p = 0; // I clear
+        cpu.sp = 0xFF;
+        cpu.irq_pending = true;
+        cpu.step(&mut bus);
+
+        assert_eq!(cpu.pc, 0xD000);
+        assert_eq!(cpu.sp, 0xFC); // pushed 3 bytes
+        assert!(cpu.p & flags::FLAG_I != 0);
+        // IRQ is level-sensitive: irq_pending is NOT cleared here.
+        // The IRQ source is responsible for de-asserting.
+        assert!(cpu.irq_pending);
+        // Verify pushed values: stack grows down from sp=0xFF.
+        assert_eq!(bus.peek(0x01FF), 0x43); // PCH
+        assert_eq!(bus.peek(0x01FE), 0x21); // PCL
+        let pushed_p = bus.peek(0x01FD);
+        assert_eq!(pushed_p & flags::FLAG_B, 0); // B clear
+        assert!(pushed_p & flags::FLAG_U != 0); // U set
+    }
+
+    #[test]
+    fn irq_is_ignored_when_i_set() {
+        let mut bus = bus_with_irq_vector(0xD000);
+        let mut cpu = Cpu::new();
+        // Place a NOP ($EA) into RAM at $0421 and point PC there so
+        // step() will dispatch a real NOP rather than fall through to
+        // BRK ($00) at zeroed RAM/ROM.
+        bus.ram[0x0421] = 0xEA;
+        cpu.pc = 0x0421;
+        cpu.p = flags::FLAG_I; // I set: mask IRQs
+        cpu.sp = 0xFF;
+        cpu.irq_pending = true;
+        cpu.step(&mut bus);
+
+        // Step should have fetched and executed the NOP at $0421
+        // rather than entering the IRQ handler at $D000.
+        assert_ne!(cpu.pc, 0xD000);
+        assert_eq!(cpu.pc, 0x0422);
+        // Stack pointer is untouched since NOP doesn't push.
+        assert_eq!(cpu.sp, 0xFF);
+        // irq_pending stays asserted (level-sensitive, source clears).
+        assert!(cpu.irq_pending);
     }
 
     #[test]

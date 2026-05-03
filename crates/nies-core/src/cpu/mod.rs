@@ -147,4 +147,33 @@ mod tests {
         cpu.reset(&mut bus);
         assert_eq!(bus.cycle, cycle_before + 2);
     }
+
+    #[test]
+    fn reset_returns_to_vector_from_arbitrary_state() {
+        let mut bus = bus_with_reset_vector(0xC000);
+        let mut cpu = Cpu::new();
+        // Put CPU in an arbitrary post-init state.
+        cpu.a = 0xAB;
+        cpu.x = 0xCD;
+        cpu.y = 0xEF;
+        cpu.pc = 0x1234;
+        cpu.sp = 0x10;
+        cpu.p = 0xFF;
+        cpu.jammed = true;
+        cpu.nmi_pending = true;
+        cpu.irq_pending = true;
+
+        cpu.reset(&mut bus);
+
+        // Reset clears all the special states and reloads PC from $FFFC/D.
+        assert_eq!(cpu.pc, 0xC000);
+        assert_eq!(cpu.a, 0);
+        assert_eq!(cpu.x, 0);
+        assert_eq!(cpu.y, 0);
+        assert_eq!(cpu.sp, 0xFD);
+        assert_eq!(cpu.p, 0x34);
+        assert!(!cpu.jammed);
+        assert!(!cpu.nmi_pending);
+        assert!(!cpu.irq_pending);
+    }
 }

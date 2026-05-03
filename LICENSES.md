@@ -51,6 +51,7 @@ Sources:
 | `blargg/instr_timing/instr_timing.nes` | blargg via christopherpow `instr_timing/instr_timing.nes` | Public domain | `3d1bca14266f1e25b75a34ddd29c9df1ce9c6d990c8663a218f72e7861660fb0` |
 | `blargg/instr_timing/1-instr_timing.nes` | blargg via christopherpow `instr_timing/rom_singles/` | Public domain | `e260068839fe3d0402376e97e4ee15f5790ee77c701fd0700bba057527910222` |
 | `blargg/instr_timing/2-branch_timing.nes` | blargg via christopherpow `instr_timing/rom_singles/` | Public domain | `0afaa393f375844ab98834c1ecba7fa6d8c44880c8b6e738936d0f04a84c8538` |
+| `blargg/cpu_dummy_reads.nes` | blargg via christopherpow `cpu_dummy_reads/cpu_dummy_reads.nes` | Public domain | `db4f91b80c5fbc123e7dcb420fb7fea9b8a18613edf4de7f3d1e3ed95e3117c9` |
 
 ## Third-party crates
 

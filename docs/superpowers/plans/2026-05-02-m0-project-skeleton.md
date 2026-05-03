@@ -1129,7 +1129,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.86.0
+          toolchain: 1.94.0
           components: rustfmt
       - run: cargo fmt --all -- --check
 
@@ -1144,7 +1144,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.86.0
+          toolchain: 1.94.0
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - name: Linux build deps
@@ -1161,7 +1161,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.86.0
+          toolchain: 1.94.0
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - name: Install trunk

@@ -47,6 +47,7 @@ Sources:
 | `blargg/cpu_instrs/14-rti.nes` | blargg via christopherpow `instr_test-v5/rom_singles/` | Public domain | `f084b00605be1840946b53935032581e68abe1bb24479942751cfe46ddfcb280` |
 | `blargg/cpu_instrs/15-brk.nes` | blargg via christopherpow `instr_test-v5/rom_singles/` | Public domain | `da7ae9a191c4483b540771e15b1f6f18df68f1d1ecd717b59ea8b1ee3596ec3e` |
 | `blargg/cpu_instrs/16-special.nes` | blargg via christopherpow `instr_test-v5/rom_singles/` | Public domain | `7d03410b61784e49920901e84b00a4f31a19078391f20005c6fac9036d2190f7` |
+| `blargg/instr_misc.nes` | blargg via christopherpow `instr_misc/instr_misc.nes` | Public domain | `b6762e20a285216304dfd2b5e1f192459354b23a5e48b2f5f9fb7cb0dac51243` |
 
 ## Third-party crates
 

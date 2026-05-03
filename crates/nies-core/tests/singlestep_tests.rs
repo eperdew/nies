@@ -639,3 +639,37 @@ fn opcode_ca_dex() {
 fn opcode_88_dey() {
     run_opcode_tests(0x88);
 }
+
+// Branches
+#[test]
+fn opcode_90_bcc() {
+    run_opcode_tests(0x90);
+}
+#[test]
+fn opcode_b0_bcs() {
+    run_opcode_tests(0xB0);
+}
+#[test]
+fn opcode_f0_beq() {
+    run_opcode_tests(0xF0);
+}
+#[test]
+fn opcode_d0_bne() {
+    run_opcode_tests(0xD0);
+}
+#[test]
+fn opcode_30_bmi() {
+    run_opcode_tests(0x30);
+}
+#[test]
+fn opcode_10_bpl() {
+    run_opcode_tests(0x10);
+}
+#[test]
+fn opcode_50_bvc() {
+    run_opcode_tests(0x50);
+}
+#[test]
+fn opcode_70_bvs() {
+    run_opcode_tests(0x70);
+}

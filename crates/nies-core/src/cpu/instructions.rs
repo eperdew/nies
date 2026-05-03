@@ -578,6 +578,15 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             cpu.y = cpu.y.wrapping_sub(1);
             set_nz(cpu, cpu.y);
         }
+        // Branches
+        0x90 => branch_if(cpu, bus, (cpu.p & flags::FLAG_C) == 0), // BCC
+        0xB0 => branch_if(cpu, bus, (cpu.p & flags::FLAG_C) != 0), // BCS
+        0xF0 => branch_if(cpu, bus, (cpu.p & flags::FLAG_Z) != 0), // BEQ
+        0xD0 => branch_if(cpu, bus, (cpu.p & flags::FLAG_Z) == 0), // BNE
+        0x30 => branch_if(cpu, bus, (cpu.p & flags::FLAG_N) != 0), // BMI
+        0x10 => branch_if(cpu, bus, (cpu.p & flags::FLAG_N) == 0), // BPL
+        0x50 => branch_if(cpu, bus, (cpu.p & flags::FLAG_V) == 0), // BVC
+        0x70 => branch_if(cpu, bus, (cpu.p & flags::FLAG_V) != 0), // BVS
         _ => panic!(
             "CPU executed unimplemented opcode ${opcode:02X} at PC=${:04X}",
             cpu.pc.wrapping_sub(1)
@@ -723,5 +732,22 @@ fn set_nz(cpu: &mut Cpu, val: u8) {
     }
     if val & 0x80 != 0 {
         cpu.p |= flags::FLAG_N;
+    }
+}
+
+/// Conditional branch helper. Reads the signed offset, then if `taken`,
+/// issues a dummy read of the unmodified PC, computes the new PC, and
+/// — if the branch crosses a page boundary — issues a second dummy read
+/// at the unmasked-PC address before updating PC.
+fn branch_if<B: BusLike>(cpu: &mut Cpu, bus: &mut B, taken: bool) {
+    let offset = addr::relative(cpu, bus);
+    if taken {
+        let _ = bus.read(cpu.pc); // dummy read at unmodified PC
+        let new_pc = (cpu.pc as i32 + offset as i32) as u16;
+        if (cpu.pc & 0xFF00) != (new_pc & 0xFF00) {
+            // Page-crossed: extra dummy read at unmasked-PC.
+            let _ = bus.read((cpu.pc & 0xFF00) | (new_pc & 0x00FF));
+        }
+        cpu.pc = new_pc;
     }
 }

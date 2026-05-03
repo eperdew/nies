@@ -749,6 +749,122 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             let _ = bus.read(target); // dummy read at pulled PC pre-increment
             cpu.pc = target.wrapping_add(1);
         }
+        // Stable illegals: SLO (ASL + ORA combined RMW).
+        0x03 => {
+            let a = addr::ind_x(cpu, bus);
+            rmw(cpu, bus, a, slo_value);
+        }
+        0x07 => {
+            let a = addr::zp(cpu, bus);
+            rmw(cpu, bus, a, slo_value);
+        }
+        0x0F => {
+            let a = addr::abs(cpu, bus);
+            rmw(cpu, bus, a, slo_value);
+        }
+        0x13 => {
+            let a = addr::ind_y_rmw(cpu, bus);
+            rmw(cpu, bus, a, slo_value);
+        }
+        0x17 => {
+            let a = addr::zp_x(cpu, bus);
+            rmw(cpu, bus, a, slo_value);
+        }
+        0x1B => {
+            let a = addr::abs_y_rmw(cpu, bus);
+            rmw(cpu, bus, a, slo_value);
+        }
+        0x1F => {
+            let a = addr::abs_x_rmw(cpu, bus);
+            rmw(cpu, bus, a, slo_value);
+        }
+        // Stable illegals: RLA (ROL + AND combined RMW).
+        0x23 => {
+            let a = addr::ind_x(cpu, bus);
+            rmw(cpu, bus, a, rla_value);
+        }
+        0x27 => {
+            let a = addr::zp(cpu, bus);
+            rmw(cpu, bus, a, rla_value);
+        }
+        0x2F => {
+            let a = addr::abs(cpu, bus);
+            rmw(cpu, bus, a, rla_value);
+        }
+        0x33 => {
+            let a = addr::ind_y_rmw(cpu, bus);
+            rmw(cpu, bus, a, rla_value);
+        }
+        0x37 => {
+            let a = addr::zp_x(cpu, bus);
+            rmw(cpu, bus, a, rla_value);
+        }
+        0x3B => {
+            let a = addr::abs_y_rmw(cpu, bus);
+            rmw(cpu, bus, a, rla_value);
+        }
+        0x3F => {
+            let a = addr::abs_x_rmw(cpu, bus);
+            rmw(cpu, bus, a, rla_value);
+        }
+        // Stable illegals: SRE (LSR + EOR combined RMW).
+        0x43 => {
+            let a = addr::ind_x(cpu, bus);
+            rmw(cpu, bus, a, sre_value);
+        }
+        0x47 => {
+            let a = addr::zp(cpu, bus);
+            rmw(cpu, bus, a, sre_value);
+        }
+        0x4F => {
+            let a = addr::abs(cpu, bus);
+            rmw(cpu, bus, a, sre_value);
+        }
+        0x53 => {
+            let a = addr::ind_y_rmw(cpu, bus);
+            rmw(cpu, bus, a, sre_value);
+        }
+        0x57 => {
+            let a = addr::zp_x(cpu, bus);
+            rmw(cpu, bus, a, sre_value);
+        }
+        0x5B => {
+            let a = addr::abs_y_rmw(cpu, bus);
+            rmw(cpu, bus, a, sre_value);
+        }
+        0x5F => {
+            let a = addr::abs_x_rmw(cpu, bus);
+            rmw(cpu, bus, a, sre_value);
+        }
+        // Stable illegals: RRA (ROR + ADC combined RMW).
+        0x63 => {
+            let a = addr::ind_x(cpu, bus);
+            rmw(cpu, bus, a, rra_value);
+        }
+        0x67 => {
+            let a = addr::zp(cpu, bus);
+            rmw(cpu, bus, a, rra_value);
+        }
+        0x6F => {
+            let a = addr::abs(cpu, bus);
+            rmw(cpu, bus, a, rra_value);
+        }
+        0x73 => {
+            let a = addr::ind_y_rmw(cpu, bus);
+            rmw(cpu, bus, a, rra_value);
+        }
+        0x77 => {
+            let a = addr::zp_x(cpu, bus);
+            rmw(cpu, bus, a, rra_value);
+        }
+        0x7B => {
+            let a = addr::abs_y_rmw(cpu, bus);
+            rmw(cpu, bus, a, rra_value);
+        }
+        0x7F => {
+            let a = addr::abs_x_rmw(cpu, bus);
+            rmw(cpu, bus, a, rra_value);
+        }
         // Stable illegals: LAX (LDA + LDX combined load).
         0xA3 => {
             let a = addr::ind_x(cpu, bus);
@@ -1022,6 +1138,41 @@ fn dcp_value(cpu: &mut Cpu, v: u8) -> u8 {
 fn isc_value(cpu: &mut Cpu, v: u8) -> u8 {
     let new = v.wrapping_add(1);
     adc_core(cpu, new ^ 0xFF);
+    new
+}
+
+/// SLO: ASL + ORA combined. Shifts memory left, ORs result into A.
+/// Stable illegal RMW. N+Z reflect the final A.
+fn slo_value(cpu: &mut Cpu, v: u8) -> u8 {
+    let new = asl_value(cpu, v);
+    cpu.a |= new;
+    set_nz(cpu, cpu.a);
+    new
+}
+
+/// RLA: ROL + AND combined. Rotates memory left, ANDs result into A.
+/// Stable illegal RMW. N+Z reflect the final A.
+fn rla_value(cpu: &mut Cpu, v: u8) -> u8 {
+    let new = rol_value(cpu, v);
+    cpu.a &= new;
+    set_nz(cpu, cpu.a);
+    new
+}
+
+/// SRE: LSR + EOR combined. Shifts memory right, XORs result into A.
+/// Stable illegal RMW. N+Z reflect the final A.
+fn sre_value(cpu: &mut Cpu, v: u8) -> u8 {
+    let new = lsr_value(cpu, v);
+    cpu.a ^= new;
+    set_nz(cpu, cpu.a);
+    new
+}
+
+/// RRA: ROR + ADC combined. Rotates memory right, then ADCs result into
+/// A (so the V flag follows the standard ADC formula). Stable illegal RMW.
+fn rra_value(cpu: &mut Cpu, v: u8) -> u8 {
+    let new = ror_value(cpu, v);
+    adc_core(cpu, new);
     new
 }
 

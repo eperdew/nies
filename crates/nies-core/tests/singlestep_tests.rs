@@ -999,3 +999,123 @@ fn opcode_fb_isc_absy() {
 fn opcode_ff_isc_absx() {
     run_opcode_tests(0xFF);
 }
+
+// Stable illegals: SLO (ASL + ORA combined RMW)
+#[test]
+fn opcode_03_slo_indx() {
+    run_opcode_tests(0x03);
+}
+#[test]
+fn opcode_07_slo_zp() {
+    run_opcode_tests(0x07);
+}
+#[test]
+fn opcode_0f_slo_abs() {
+    run_opcode_tests(0x0F);
+}
+#[test]
+fn opcode_13_slo_indy() {
+    run_opcode_tests(0x13);
+}
+#[test]
+fn opcode_17_slo_zpx() {
+    run_opcode_tests(0x17);
+}
+#[test]
+fn opcode_1b_slo_absy() {
+    run_opcode_tests(0x1B);
+}
+#[test]
+fn opcode_1f_slo_absx() {
+    run_opcode_tests(0x1F);
+}
+
+// Stable illegals: RLA (ROL + AND combined RMW)
+#[test]
+fn opcode_23_rla_indx() {
+    run_opcode_tests(0x23);
+}
+#[test]
+fn opcode_27_rla_zp() {
+    run_opcode_tests(0x27);
+}
+#[test]
+fn opcode_2f_rla_abs() {
+    run_opcode_tests(0x2F);
+}
+#[test]
+fn opcode_33_rla_indy() {
+    run_opcode_tests(0x33);
+}
+#[test]
+fn opcode_37_rla_zpx() {
+    run_opcode_tests(0x37);
+}
+#[test]
+fn opcode_3b_rla_absy() {
+    run_opcode_tests(0x3B);
+}
+#[test]
+fn opcode_3f_rla_absx() {
+    run_opcode_tests(0x3F);
+}
+
+// Stable illegals: SRE (LSR + EOR combined RMW)
+#[test]
+fn opcode_43_sre_indx() {
+    run_opcode_tests(0x43);
+}
+#[test]
+fn opcode_47_sre_zp() {
+    run_opcode_tests(0x47);
+}
+#[test]
+fn opcode_4f_sre_abs() {
+    run_opcode_tests(0x4F);
+}
+#[test]
+fn opcode_53_sre_indy() {
+    run_opcode_tests(0x53);
+}
+#[test]
+fn opcode_57_sre_zpx() {
+    run_opcode_tests(0x57);
+}
+#[test]
+fn opcode_5b_sre_absy() {
+    run_opcode_tests(0x5B);
+}
+#[test]
+fn opcode_5f_sre_absx() {
+    run_opcode_tests(0x5F);
+}
+
+// Stable illegals: RRA (ROR + ADC combined RMW)
+#[test]
+fn opcode_63_rra_indx() {
+    run_opcode_tests(0x63);
+}
+#[test]
+fn opcode_67_rra_zp() {
+    run_opcode_tests(0x67);
+}
+#[test]
+fn opcode_6f_rra_abs() {
+    run_opcode_tests(0x6F);
+}
+#[test]
+fn opcode_73_rra_indy() {
+    run_opcode_tests(0x73);
+}
+#[test]
+fn opcode_77_rra_zpx() {
+    run_opcode_tests(0x77);
+}
+#[test]
+fn opcode_7b_rra_absy() {
+    run_opcode_tests(0x7B);
+}
+#[test]
+fn opcode_7f_rra_absx() {
+    run_opcode_tests(0x7F);
+}

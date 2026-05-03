@@ -749,6 +749,29 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             let _ = bus.read(target); // dummy read at pulled PC pre-increment
             cpu.pc = target.wrapping_add(1);
         }
+        // Magic-constant illegals: XAA / ANE, LXA / LAX#imm.
+        //
+        // Real 6502 hardware behavior: A := (A | M) & operand, where M
+        // is a "magic constant" that varies with chip, temperature, and
+        // even what was on the bus last. References disagree; we match
+        // SingleStepTests/65x02 (CONST = 0xEE). No commercial NES game
+        // uses these opcodes — they are documented for completeness.
+        0x8B => {
+            // XAA / ANE: A := (A | MAGIC) & X & imm.
+            let v = addr::fetch_byte(cpu, bus);
+            const MAGIC: u8 = 0xEE;
+            cpu.a = (cpu.a | MAGIC) & cpu.x & v;
+            set_nz(cpu, cpu.a);
+        }
+        0xAB => {
+            // LXA / LAX#imm: A := X := (A | MAGIC) & imm.
+            let v = addr::fetch_byte(cpu, bus);
+            const MAGIC: u8 = 0xEE;
+            let result = (cpu.a | MAGIC) & v;
+            cpu.a = result;
+            cpu.x = result;
+            set_nz(cpu, result);
+        }
         // Unstable illegals: SHX / SHY / SHA / TAS.
         //
         // Real 6502 hardware behavior of these is unstable across chips,

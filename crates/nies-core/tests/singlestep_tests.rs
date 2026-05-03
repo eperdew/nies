@@ -1167,3 +1167,13 @@ fn opcode_9f_sha_absy() {
 fn opcode_9b_tas_absy() {
     run_opcode_tests(0x9B);
 }
+
+// Magic-constant illegals: XAA / ANE, LXA / LAX#imm
+#[test]
+fn opcode_8b_xaa_imm() {
+    run_opcode_tests(0x8B);
+}
+#[test]
+fn opcode_ab_lxa_imm() {
+    run_opcode_tests(0xAB);
+}

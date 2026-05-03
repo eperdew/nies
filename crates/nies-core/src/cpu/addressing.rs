@@ -4,6 +4,14 @@
 //! computes the effective address, and returns it. For modes where the
 //! cycle count varies on page-cross, the helper also returns whether
 //! a page boundary was crossed.
+//!
+//! References:
+//! - <https://www.nesdev.org/wiki/CPU_addressing_modes> — the canonical
+//!   per-mode summary, including the page-cross dummy-read timing rules
+//!   and the indirect / zero-page-indexed page-wrap quirks implemented
+//!   by `read_word_buggy` and `read_word_zp` below.
+//! - <https://www.nesdev.org/wiki/CPU_unofficial_opcodes> — addressing
+//!   variants of the unofficial opcodes that share these helpers.
 
 use crate::bus::BusLike;
 use crate::cpu::Cpu;

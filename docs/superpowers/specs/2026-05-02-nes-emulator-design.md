@@ -616,6 +616,24 @@ Blargg's test ROMs: explicitly public domain. Nestest: by kevtris, customarily r
 
 Every implementation task in the writing-plans-generated plan ties to specific test ROMs and SingleStepTests cases that must pass. PPU implementation walks blargg's `ppu_vbl_nmi` sub-tests in numeric order (pass `01-vbl_basics.nes` first, then `02-vbl_set_time.nes`, etc.). APU implementation walks `blargg/apu_test` similarly.
 
+### 7.8 Documented test deferrals
+
+Some vendored test ROMs cannot pass at the milestone where they're first relevant; they're vendored anyway so they can be enabled later without re-vendoring. Each is `#[ignore = "..."]` in the integration test suite with a clear reason; this list tracks when they're expected to start passing.
+
+**M1 — vendored, marked `#[ignore]`, expected to pass at the listed milestone:**
+
+| Test | Ignored at M1 because | Re-enable at |
+|---|---|---|
+| `blargg/cpu_instrs/03-immediate.nes` | The single failing case is opcode `$AB` (ATX/LXA), an unstable magic-constant illegal. SingleStepTests/65x02 uses magic constant `0xEE`; blargg's checksum was generated against a different (undocumented) constant. We match SingleStepTests, which is the more rigorous corpus. The other 64 immediate-mode opcodes in `03-immediate.nes` pass. No commercial NES game uses `$AB`. | **Permanent.** Documented as accepted divergence; the only resolution would be to make our `$AB` selectable per the corpus, which is not worth the complexity. |
+| `blargg/instr_timing/1-instr_timing.nes` | Depends on the APU length counter to time instruction-by-instruction execution. APU is a stub at M1. | **M5** (APU implementation). |
+| `blargg/instr_timing/2-branch_timing.nes` | Same dependency on APU length counter. | **M5** (APU implementation). |
+| `blargg/cpu_instrs/cpu_instrs.nes` (combined) | Uses MMC1 (mapper 1). M1 ships only NROM. The 16 individual NROM sub-tests (`01-basics.nes` through `16-special.nes`) cover the same opcode-level content. | **M11** (MMC1). |
+| `blargg/instr_misc.nes` | Uses MMC1. | **M11** (MMC1). |
+| `blargg/instr_timing/instr_timing.nes` (combined) | Uses MMC1. | **M11**, then enabled together with the sub-tests once both M5 (APU) and M11 (MMC1) have shipped. |
+| `blargg/cpu_dummy_reads.nes` | Uses CNROM (mapper 3). M1 ships only NROM. SingleStepTests' per-cycle bus-trace check already validates dummy-read behavior for every opcode at higher precision than `cpu_dummy_reads.nes` provides. | **M11+** (CNROM). |
+
+The aggregate signal at M1: 256/256 SingleStepTests opcodes pass + 16/16 NROM-compatible blargg cpu_instrs sub-tests pass + nestest's automated mode matches Nintendulator (M1 Task 46).
+
 ## 8. Milestones
 
 ```
@@ -643,7 +661,7 @@ The 6502 CPU is correct in isolation, including illegals.
 - `Bus` skeleton with RAM and stub mapper (NROM CPU side only); PPU/APU placeholder.
 - Tick discipline enforced.
 
-**Gate:** SingleStepTests/65x02 corpus passes for every opcode. `nestest.nes`, `blargg/cpu_instrs/*`, `instr_misc.nes`, `instr_timing.nes`, `cpu_dummy_reads.nes` all green.
+**Gate:** SingleStepTests/65x02 corpus passes for every opcode (all 256). The 16 NROM sub-tests of `blargg/cpu_instrs/` (`01-basics.nes` through `16-special.nes`) all green, *except* `03-immediate.nes` is `#[ignore]`d due to the documented `$AB` corpus disagreement (see §7.8). `nestest.nes` automated mode matches the Nintendulator log byte-for-byte (M1 Task 46). The MMC1/CNROM-requiring combined runners (`cpu_instrs.nes`, `instr_misc.nes`, `instr_timing.nes`, `cpu_dummy_reads.nes`) are vendored but `#[ignore]`d at M1 — they get re-enabled at M11 when those mappers ship. The two `instr_timing` sub-tests are also `#[ignore]`d at M1 pending APU (M5).
 
 ### M2 — PPU
 
@@ -690,7 +708,7 @@ Sound works; pacing switches to audio-driven.
 - cpal integration: native (CoreAudio/ALSA/WASAPI), WASM (`audioworklet` preferred, `wasm-bindgen` fallback).
 - Volume/mute hooks (UI in M10).
 
-**Gate:** `blargg/apu_test/*`, `dmc_tests/*`, `apu_mixer/*` green.
+**Gate:** `blargg/apu_test/*`, `dmc_tests/*`, `apu_mixer/*` green. Additionally, the M1-deferred `blargg/instr_timing/1-instr_timing.nes` and `2-branch_timing.nes` un-`#[ignore]` and pass — those tests measure instruction timing using the APU length counter, which doesn't exist until M5 (see §7.8).
 
 ### 🎯 M6 — SMB1 milestone
 
@@ -733,6 +751,8 @@ All debugger functionality from §6, minus conditional breakpoints.
 - Heavy panels repaint throttled to 30 Hz.
 - F12 toggle.
 
+**Carry-over from M1: introduce typed `OpCode` enum.** The CPU dispatch in `crates/nies-core/src/cpu/instructions.rs` matches on raw `u8` opcode bytes at M1 because the only consumer was the dispatch itself. M9 introduces multiple consumers (disassembly renderer, conditional-breakpoint expression language, trace-row display, watchpoint editor) that all benefit from a typed enum. At that point: define `enum OpCode` with one variant per *semantic* operation (e.g., `Lda { mode: AddrMode }`, not 8 distinct LDA variants), provide `From<u8>` / `TryFrom<u8>`, refactor the dispatch to match on the enum. Naming the variants gets a tiebreaker via the disassembly renderer — whatever the disassembler prints becomes the variant name, propagated everywhere. Approach reduces 256 hex literals to ~50 semantic operations + an `AddrMode` enum, which is more compact than the M1 dispatch *and* useful to multiple sites.
+
 **Gate:** manual exercise — set PC breakpoint inside SMB1, hit it, step over a JSR, step out, step back ~50 instructions, set watchpoint on player Y, observe firing on jump.
 
 ### M10 — Polish
@@ -752,9 +772,9 @@ Ship-quality v1.
 
 ### Post-v1 (out of v1 scope, listed for context)
 
-- **M11:** MMC1 + UxROM mappers; compat list grows.
+- **M11:** MMC1 + UxROM mappers; compat list grows. Re-enables M1-deferred `blargg/cpu_instrs/cpu_instrs.nes`, `instr_misc.nes`, `instr_timing/instr_timing.nes` (combined runners use MMC1).
 - **M12:** MMC3; confirms A12 IRQ machinery from day one.
-- **M13:** CNROM, AxROM, FME-7, others as games of interest demand.
+- **M13:** CNROM, AxROM, FME-7, others as games of interest demand. Re-enables M1-deferred `blargg/cpu_dummy_reads.nes` (CNROM).
 - **M14:** Optional NTSC composite filter, CRT shader, scanlines.
 - **M15:** Reconsider conditional breakpoints (license decision + evalexpr vs roll-our-own).
 - **M16:** Possibly netplay (its own project).

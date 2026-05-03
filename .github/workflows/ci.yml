@@ -30,6 +30,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: false   # we'll cache + lazily fetch the LFS tarball below
+      - name: Cache SingleStepTests corpus (LFS)
+        id: lfs-cache
+        uses: actions/cache@v4
+        with:
+          path: crates/nies-core/tests/data/65x02.tar.zst
+          # Hash the LFS pointer (which contains the SHA-256 of the real
+          # tarball). Cache invalidates whenever the corpus changes.
+          key: lfs-corpus-${{ hashFiles('crates/nies-core/tests/data/65x02.tar.zst') }}
+      - name: Pull LFS objects on cache miss
+        if: steps.lfs-cache.outputs.cache-hit != 'true'
+        run: git lfs pull --include="crates/nies-core/tests/data/65x02.tar.zst"
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.94.0

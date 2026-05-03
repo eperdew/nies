@@ -6,8 +6,14 @@ use nies_core::cartridge::Cartridge;
 use nies_core::cpu::Cpu;
 use nies_core::mapper::MapperKind;
 
-const ROM: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/roms/nestest/nestest.nes");
-const LOG: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/roms/nestest/nestest.log");
+const ROM: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/roms/nestest/nestest.nes"
+);
+const LOG: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/roms/nestest/nestest.log"
+);
 
 #[derive(Debug)]
 struct LogLine {

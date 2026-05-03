@@ -51,6 +51,52 @@ impl Bus {
         self.read_no_tick(addr)
     }
 
+    /// Tick the rest of the system one CPU cycle. Called from every public
+    /// `read`/`write`. See spec §3.3.
+    fn tick(&mut self) {
+        // 3 PPU dots per CPU cycle (NTSC).
+        for _ in 0..3 {
+            self.ppu.step(&mut self.mapper);
+        }
+        // 1 APU step per CPU cycle.
+        self.apu.step(&mut self.mapper);
+        self.cycle = self.cycle.wrapping_add(1);
+        // Service any pending DMC fetch. The fetch performs a no-tick read
+        // from CPU memory, delivers the sample to DMC, and adds the
+        // configured stall by recursively ticking. M1 DMC is always idle
+        // (pending_fetch is None), so the body is unreachable at M1; this
+        // is here so M5's DMC code can land without bus changes.
+        if let Some(addr) = self.apu.dmc.take_pending_fetch() {
+            let val = self.read_no_tick(addr);
+            self.apu.dmc.deliver_sample(val);
+            self.stall(self.apu.dmc.stall_cycles());
+        }
+    }
+
+    fn stall(&mut self, cycles: u32) {
+        for _ in 0..cycles {
+            for _ in 0..3 {
+                self.ppu.step(&mut self.mapper);
+            }
+            self.apu.step(&mut self.mapper);
+            self.cycle = self.cycle.wrapping_add(1);
+        }
+    }
+
+    /// Read a byte from the CPU bus. Ticks the system one CPU cycle.
+    pub fn read(&mut self, addr: u16) -> u8 {
+        self.tick();
+        let val = self.read_no_tick(addr);
+        self.open_bus = val;
+        val
+    }
+
+    /// Write a byte to the CPU bus. Ticks the system one CPU cycle.
+    pub fn write(&mut self, addr: u16, val: u8) {
+        self.tick();
+        self.write_no_tick(addr, val);
+    }
+
     /// Internal: address-decoder read, no tick. Used by both `read` (which
     /// adds the tick) and `peek` (which doesn't).
     pub(crate) fn read_no_tick(&self, addr: u16) -> u8 {
@@ -92,7 +138,6 @@ impl Bus {
     /// Internal: write the data bus and update the address-decoder side
     /// without ticking. Used by `write` (adds tick) and any future debugger
     /// "force write" functionality.
-    #[allow(dead_code)] // first non-test caller arrives in Task 8 (`Bus::write`).
     pub(crate) fn write_no_tick(&mut self, addr: u16, val: u8) {
         self.open_bus = val;
         match addr {
@@ -182,5 +227,46 @@ mod tests {
         let mut bus = fake_bus();
         bus.write_no_tick(0x0000, 0xAB); // sets open_bus = 0xAB
         assert_eq!(bus.read_no_tick(0x4015), 0xAB);
+    }
+
+    #[test]
+    fn read_advances_cycle_counter() {
+        let mut bus = fake_bus();
+        let cycle_before = bus.cycle;
+        let _ = bus.read(0x0000);
+        assert_eq!(bus.cycle, cycle_before + 1);
+    }
+
+    #[test]
+    fn write_advances_cycle_counter() {
+        let mut bus = fake_bus();
+        let cycle_before = bus.cycle;
+        bus.write(0x0000, 0x42);
+        assert_eq!(bus.cycle, cycle_before + 1);
+    }
+
+    #[test]
+    fn read_advances_ppu_three_dots() {
+        let mut bus = fake_bus();
+        let dots_before = bus.ppu.dots;
+        let _ = bus.read(0x0000);
+        assert_eq!(bus.ppu.dots, dots_before + 3);
+    }
+
+    #[test]
+    fn read_advances_apu_one_cycle() {
+        let mut bus = fake_bus();
+        let apu_cycles_before = bus.apu.cycles;
+        let _ = bus.read(0x0000);
+        assert_eq!(bus.apu.cycles, apu_cycles_before + 1);
+    }
+
+    #[test]
+    fn peek_does_not_tick() {
+        let bus = fake_bus();
+        let cycle_before = bus.cycle;
+        let _ = bus.peek(0x0000);
+        // peek takes &self; cycle_before still valid from before
+        assert_eq!(bus.cycle, cycle_before);
     }
 }

@@ -3322,23 +3322,12 @@ fn nestest_matches_nintendulator_log() {
 
 ### Task 47: SingleStepTests sweep — every opcode green
 
-A single integration test that runs `run_opcode_tests` for all 256 opcodes. This is the comprehensive proof.
+The 256 per-opcode `#[test] fn opcode_NN_*()` entries already in `tests/singlestep_tests.rs` (added across Tasks 13, 15, 16-21, 22-28, 29-34) collectively *are* the gate. A single named sweep test was tried in an earlier revision of this plan but was removed: cargo's test runner parallelizes the 256 individual `#[test]` functions across cores (~1.5-2 s aggregate), whereas a single sweep test runs them serially in one thread (~25 s). The aggregate command `cargo test -p nies-core --test singlestep_tests opcode_` runs every per-opcode test by name pattern and is the equivalent of the old sweep.
 
-**Files:**
-- Modify: `crates/nies-core/tests/singlestep_tests.rs`
+**No new code in this task.** The verification command below confirms all 256 per-opcode tests are present and pass.
 
-```rust
-#[test]
-fn all_256_opcodes_pass() {
-    for opcode in 0x00..=0xFFu8 {
-        run_opcode_tests(opcode);
-        if opcode == 0xFF { break; }
-    }
-}
-```
-
-- [ ] **Step 1:** Confirm: `cargo test -p nies-core --test singlestep_tests all_256_opcodes_pass`
-- [ ] **Step 2: Commit** — `test(cpu): SingleStepTests passes for all 256 opcodes`
+- [ ] **Step 1: Confirm.** Run `cargo test -p nies-core --test singlestep_tests opcode_` and verify the test count is exactly 256.
+- [ ] **Step 2: No commit needed for this task** — the per-opcode tests landed in their respective opcode-family commits.
 
 ### Task 48: Run all blargg cpu_* tests as a single integration suite
 
@@ -3400,7 +3389,7 @@ A small "completes M1" wrap-up commit (often empty if no further changes are nee
 ## Acceptance checklist for M1
 
 - [ ] All 256 6502 opcodes (official + illegal) implemented in `crates/nies-core/src/cpu/instructions.rs`.
-- [ ] `cargo test -p nies-core --test singlestep_tests all_256_opcodes_pass` passes (all ~2.5M test cases green).
+- [ ] `cargo test -p nies-core --test singlestep_tests opcode_` runs 256 per-opcode tests, all pass (~2.5M test cases green; cargo parallelizes across CPU cores).
 - [ ] `cargo test -p nies-core --test test_roms blargg_cpu_instrs blargg_instr_misc blargg_instr_timing blargg_cpu_dummy_reads` all pass.
 - [ ] `cargo test -p nies-core --test nestest_compare nestest_matches_nintendulator_log` passes.
 - [ ] iNES + NES 2.0 cartridge parser handles malformed input cleanly.

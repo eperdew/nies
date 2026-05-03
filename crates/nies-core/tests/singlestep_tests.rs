@@ -1234,16 +1234,18 @@ fn opcode_bb_las_absy() {
     run_opcode_tests(0xBB);
 }
 
-/// Comprehensive sweep: run every opcode (0x00..=0xFF) through SingleStepTests.
-/// Each individual opcode also has a `#[test] fn opcode_NN_*()` entry above
-/// for fast localization; this test exists to make "all 256 opcodes pass"
-/// a single named test that can be referenced in the M1 gate.
-#[test]
-fn all_256_opcodes_pass() {
-    for opcode in 0x00u8..=0xFFu8 {
-        run_opcode_tests(opcode);
-        if opcode == 0xFF {
-            break;
-        }
-    }
-}
+// Note: an earlier revision of this file had a single
+// `all_256_opcodes_pass` test that looped over every opcode
+// sequentially. It was removed because:
+//
+//   - Cargo's test runner already parallelizes the 256 per-opcode
+//     `#[test] fn opcode_NN_*()` entries above across CPU cores.
+//     A single sweep test ran them serially in one thread, taking
+//     ~25 s in debug vs ~5-10 s aggregate when the per-opcode
+//     tests run in parallel.
+//   - "All opcodes pass" is exactly what `cargo test --test
+//     singlestep_tests opcode_` already produces, with naming
+//     and parallelism for free.
+//   - The CI gate is `cargo test`, which runs every `#[test]`
+//     including all 256 per-opcode entries; no consolidated test
+//     was adding coverage.

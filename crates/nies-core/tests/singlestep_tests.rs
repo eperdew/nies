@@ -1,18 +1,10 @@
-//! Per-opcode integration tests driven by the SingleStepTests/65x02
-//! corpus. Each opcode-implementation task adds a `#[test]` here that
-//! calls `run_opcode_tests(0xNN)`.
-//!
-//! The corpus assumes a 64 KiB flat memory model (no PPU/APU sub-mapping),
-//! so this test runner builds a `FlatBus` (declared below) that mirrors
-//! `Bus`'s public read/write interface but stores all addresses in a
-//! single 64 KiB `Vec<u8>` plus a recorded access list.
+//! Per-opcode integration tests driven by the SingleStepTests/65x02 corpus.
 
 mod common;
 
-use common::{load_opcode_cases, TestCase};
-use nies_core::cpu::flags;
+use common::{TestCase, load_opcode_cases};
+use nies_core::bus::BusLike;
 
-/// 64 KiB flat memory + cycle-by-cycle access trace.
 pub struct FlatBus {
     pub mem: [u8; 0x10000],
     pub trace: Vec<(u16, u8, &'static str)>,
@@ -27,44 +19,25 @@ impl FlatBus {
     }
 }
 
-/// Mini-Cpu compatible enough with `nies_core::cpu::Cpu` to drive the
-/// dispatch table. Built so we can substitute the FlatBus without
-/// changing the Cpu API.
-///
-/// We deliberately reuse the production opcode handlers; the SingleStepTests
-/// corpus's purpose is to validate that production code is correct against
-/// every documented case.
-pub struct TestHarness {
-    pub cpu: nies_core::cpu::Cpu,
-    pub bus: FlatBus,
-}
-
-impl TestHarness {
-    fn from_initial(state: &common::TestState) -> Self {
-        let mut bus = FlatBus::new();
-        for &(addr, val) in &state.ram {
-            bus.mem[addr as usize] = val;
-        }
-        let mut cpu = nies_core::cpu::Cpu::new();
-        cpu.pc = state.pc;
-        cpu.sp = state.s;
-        cpu.a = state.a;
-        cpu.x = state.x;
-        cpu.y = state.y;
-        cpu.p = state.p;
-        TestHarness { cpu, bus }
+impl BusLike for FlatBus {
+    fn read(&mut self, addr: u16) -> u8 {
+        let val = self.mem[addr as usize];
+        self.trace.push((addr, val, "read"));
+        val
+    }
+    fn write(&mut self, addr: u16, val: u8) {
+        self.mem[addr as usize] = val;
+        self.trace.push((addr, val, "write"));
     }
 }
 
-/// Run all test cases for a specific opcode and assert state + cycle trace
-/// match. Reports the first failing case if any.
 pub fn run_opcode_tests(opcode: u8) {
     let cases = load_opcode_cases(opcode);
     let mut failures = 0usize;
     let mut first_failure: Option<String> = None;
 
     for case in &cases {
-        match run_single_case(opcode, case) {
+        match run_single_case(case) {
             Ok(()) => {}
             Err(msg) => {
                 failures += 1;
@@ -77,32 +50,91 @@ pub fn run_opcode_tests(opcode: u8) {
 
     if failures > 0 {
         panic!(
-            "opcode {opcode:02X}: {failures}/{} cases failed. First failure: {}",
+            "opcode ${opcode:02X}: {failures}/{} cases failed.\nFirst failure: {}",
             cases.len(),
             first_failure.as_deref().unwrap_or("?")
         );
     }
 }
 
-fn run_single_case(_opcode: u8, case: &TestCase) -> Result<(), String> {
-    let harness = TestHarness::from_initial(&case.initial);
+fn run_single_case(case: &TestCase) -> Result<(), String> {
+    let mut bus = FlatBus::new();
+    for &(addr, val) in &case.initial.ram {
+        bus.mem[addr as usize] = val;
+    }
+    let mut cpu = nies_core::cpu::Cpu::new();
+    cpu.pc = case.initial.pc;
+    cpu.sp = case.initial.s;
+    cpu.a = case.initial.a;
+    cpu.x = case.initial.x;
+    cpu.y = case.initial.y;
+    cpu.p = case.initial.p;
 
-    // Step one instruction. Production CPU expects a real `Bus`; our
-    // FlatBus needs a thin adapter. The simplest approach for this
-    // milestone: re-implement step against FlatBus by calling the
-    // dispatch table directly with a bus-shaped trait. That requires
-    // a `Bus`-like trait the production Cpu can consume. For M1 we
-    // accept a small duplication: the test harness mirrors the bus's
-    // public surface but operates on FlatBus.
+    cpu.step(&mut bus);
 
-    // ... (full step-against-FlatBus logic implemented in Task 13
-    // as part of the LDA #imm bring-up. At Task 12 the runner exists
-    // but cannot yet drive the CPU through opcodes — Task 13 introduces
-    // a `BusLike` trait that both production Bus and FlatBus implement,
-    // allowing the dispatch table to be polymorphic.)
-    //
-    // For Task 12 the runner is dead-coded.
+    if cpu.pc != case.r#final.pc {
+        return Err(format!(
+            "PC: expected {:04X}, got {:04X}",
+            case.r#final.pc, cpu.pc
+        ));
+    }
+    if cpu.sp != case.r#final.s {
+        return Err(format!(
+            "S: expected {:02X}, got {:02X}",
+            case.r#final.s, cpu.sp
+        ));
+    }
+    if cpu.a != case.r#final.a {
+        return Err(format!(
+            "A: expected {:02X}, got {:02X}",
+            case.r#final.a, cpu.a
+        ));
+    }
+    if cpu.x != case.r#final.x {
+        return Err(format!(
+            "X: expected {:02X}, got {:02X}",
+            case.r#final.x, cpu.x
+        ));
+    }
+    if cpu.y != case.r#final.y {
+        return Err(format!(
+            "Y: expected {:02X}, got {:02X}",
+            case.r#final.y, cpu.y
+        ));
+    }
+    if cpu.p != case.r#final.p {
+        return Err(format!(
+            "P: expected {:02X}, got {:02X}",
+            case.r#final.p, cpu.p
+        ));
+    }
+    for (addr, expected) in &case.r#final.ram {
+        let got = bus.mem[*addr as usize];
+        if got != *expected {
+            return Err(format!(
+                "ram[{addr:04X}]: expected {expected:02X}, got {got:02X}"
+            ));
+        }
+    }
+    if bus.trace.len() != case.cycles.len() {
+        return Err(format!(
+            "cycle count: expected {}, got {}",
+            case.cycles.len(),
+            bus.trace.len()
+        ));
+    }
+    for (i, (expected, actual)) in case.cycles.iter().zip(bus.trace.iter()).enumerate() {
+        if expected.0 != actual.0 || expected.1 != actual.1 || expected.2 != actual.2 {
+            return Err(format!(
+                "cycle {i}: expected ({:04X}, {:02X}, {}), got ({:04X}, {:02X}, {})",
+                expected.0, expected.1, expected.2, actual.0, actual.1, actual.2
+            ));
+        }
+    }
+    Ok(())
+}
 
-    let _ = (case, &harness, flags::FLAG_C);
-    Err("step-against-FlatBus not yet implemented; see Task 13".to_string())
+#[test]
+fn opcode_a9_lda_imm() {
+    run_opcode_tests(0xA9);
 }

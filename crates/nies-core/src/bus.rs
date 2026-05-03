@@ -168,6 +168,33 @@ impl Bus {
     }
 }
 
+/// Bus interface required by the CPU's dispatch table. Production code
+/// uses `Bus`; tests substitute a flat-memory implementation. The trait
+/// is the *only* thing the CPU sees; concrete bus types add extra state
+/// (PPU/APU/mapper) on the side.
+pub trait BusLike {
+    fn read(&mut self, addr: u16) -> u8;
+    fn write(&mut self, addr: u16, val: u8);
+    /// True when the mapper has asserted IRQ. Production: forwards to
+    /// `mapper.irq_pending()`. Tests: always false.
+    fn mapper_irq_pending(&self) -> bool {
+        false
+    }
+}
+
+impl BusLike for Bus {
+    fn read(&mut self, addr: u16) -> u8 {
+        Bus::read(self, addr)
+    }
+    fn write(&mut self, addr: u16, val: u8) {
+        Bus::write(self, addr, val)
+    }
+    fn mapper_irq_pending(&self) -> bool {
+        use crate::mapper::MapperImpl;
+        self.mapper.irq_pending()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -17,10 +17,13 @@ fn corpus_tarball_contains_a9_lda_imm() {
             let mut buf = String::new();
             entry.read_to_string(&mut buf).expect("read a9.json");
             // Parse as untyped JSON; just confirm it's an array with > 0 cases.
-            let parsed: serde_json::Value =
-                serde_json::from_str(&buf).expect("parse a9.json");
+            let parsed: serde_json::Value = serde_json::from_str(&buf).expect("parse a9.json");
             let cases = parsed.as_array().expect("array");
-            assert!(cases.len() > 100, "expected lots of test cases, got {}", cases.len());
+            assert!(
+                cases.len() > 100,
+                "expected lots of test cases, got {}",
+                cases.len()
+            );
             return;
         }
     }

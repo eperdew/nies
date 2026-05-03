@@ -4,8 +4,6 @@ pub mod addressing;
 pub mod flags;
 pub mod instructions;
 
-use crate::bus::Bus;
-
 /// 6502 CPU state.
 #[derive(Debug, Clone, Copy)]
 pub struct Cpu {
@@ -50,7 +48,7 @@ impl Cpu {
     /// Initialize CPU state per spec: A=X=Y=0, S=$FD, P=$34,
     /// PC=read_word(reset_vector $FFFC). Each of the two reset reads ticks
     /// the bus.
-    pub fn reset(&mut self, bus: &mut Bus) {
+    pub fn reset<B: crate::bus::BusLike>(&mut self, bus: &mut B) {
         self.a = 0;
         self.x = 0;
         self.y = 0;
@@ -66,7 +64,7 @@ impl Cpu {
 
     /// Execute one CPU instruction. Handles pending NMI/IRQ at the
     /// instruction boundary before fetching the next opcode.
-    pub fn step(&mut self, bus: &mut Bus) {
+    pub fn step<B: crate::bus::BusLike>(&mut self, bus: &mut B) {
         if self.jammed {
             // KIL/JAM/HLT halts the CPU until reset; just keep ticking
             // the bus so PPU/APU continue running.
@@ -86,16 +84,15 @@ impl Cpu {
 
         let opcode = bus.read(self.pc);
         self.pc = self.pc.wrapping_add(1);
-        let handler = instructions::OPCODES[opcode as usize];
-        handler(self, bus);
+        instructions::dispatch(opcode, self, bus);
     }
 
-    fn service_nmi(&mut self, _bus: &mut Bus) {
+    fn service_nmi<B: crate::bus::BusLike>(&mut self, _bus: &mut B) {
         // Filled in by Task 38.
         unimplemented!("NMI service in Task 38");
     }
 
-    fn service_irq(&mut self, _bus: &mut Bus) {
+    fn service_irq<B: crate::bus::BusLike>(&mut self, _bus: &mut B) {
         // Filled in by Task 39.
         unimplemented!("IRQ service in Task 39");
     }

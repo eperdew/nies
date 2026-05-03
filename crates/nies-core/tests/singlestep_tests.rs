@@ -775,3 +775,123 @@ fn opcode_d8_cld() {
 fn opcode_f8_sed() {
     run_opcode_tests(0xF8);
 }
+
+// NOPs — official + unofficial variants
+// Implied
+#[test]
+fn opcode_ea_nop() {
+    run_opcode_tests(0xEA);
+}
+#[test]
+fn opcode_1a_nop_imp() {
+    run_opcode_tests(0x1A);
+}
+#[test]
+fn opcode_3a_nop_imp() {
+    run_opcode_tests(0x3A);
+}
+#[test]
+fn opcode_5a_nop_imp() {
+    run_opcode_tests(0x5A);
+}
+#[test]
+fn opcode_7a_nop_imp() {
+    run_opcode_tests(0x7A);
+}
+#[test]
+fn opcode_da_nop_imp() {
+    run_opcode_tests(0xDA);
+}
+#[test]
+fn opcode_fa_nop_imp() {
+    run_opcode_tests(0xFA);
+}
+// Immediate
+#[test]
+fn opcode_80_nop_imm() {
+    run_opcode_tests(0x80);
+}
+#[test]
+fn opcode_82_nop_imm() {
+    run_opcode_tests(0x82);
+}
+#[test]
+fn opcode_89_nop_imm() {
+    run_opcode_tests(0x89);
+}
+#[test]
+fn opcode_c2_nop_imm() {
+    run_opcode_tests(0xC2);
+}
+#[test]
+fn opcode_e2_nop_imm() {
+    run_opcode_tests(0xE2);
+}
+// Zero-page
+#[test]
+fn opcode_04_nop_zp() {
+    run_opcode_tests(0x04);
+}
+#[test]
+fn opcode_44_nop_zp() {
+    run_opcode_tests(0x44);
+}
+#[test]
+fn opcode_64_nop_zp() {
+    run_opcode_tests(0x64);
+}
+// Zero-page,X
+#[test]
+fn opcode_14_nop_zpx() {
+    run_opcode_tests(0x14);
+}
+#[test]
+fn opcode_34_nop_zpx() {
+    run_opcode_tests(0x34);
+}
+#[test]
+fn opcode_54_nop_zpx() {
+    run_opcode_tests(0x54);
+}
+#[test]
+fn opcode_74_nop_zpx() {
+    run_opcode_tests(0x74);
+}
+#[test]
+fn opcode_d4_nop_zpx() {
+    run_opcode_tests(0xD4);
+}
+#[test]
+fn opcode_f4_nop_zpx() {
+    run_opcode_tests(0xF4);
+}
+// Absolute
+#[test]
+fn opcode_0c_nop_abs() {
+    run_opcode_tests(0x0C);
+}
+// Absolute,X
+#[test]
+fn opcode_1c_nop_absx() {
+    run_opcode_tests(0x1C);
+}
+#[test]
+fn opcode_3c_nop_absx() {
+    run_opcode_tests(0x3C);
+}
+#[test]
+fn opcode_5c_nop_absx() {
+    run_opcode_tests(0x5C);
+}
+#[test]
+fn opcode_7c_nop_absx() {
+    run_opcode_tests(0x7C);
+}
+#[test]
+fn opcode_dc_nop_absx() {
+    run_opcode_tests(0xDC);
+}
+#[test]
+fn opcode_fc_nop_absx() {
+    run_opcode_tests(0xFC);
+}

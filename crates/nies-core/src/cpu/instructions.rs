@@ -578,6 +578,35 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             cpu.y = cpu.y.wrapping_sub(1);
             set_nz(cpu, cpu.y);
         }
+        // NOPs (official + unofficial variants)
+        // Implied (1-byte, 2 cycles): dummy read at PC.
+        0xEA | 0x1A | 0x3A | 0x5A | 0x7A | 0xDA | 0xFA => {
+            let _ = bus.read(cpu.pc);
+        }
+        // Immediate (2 bytes, 2 cycles): fetch+discard imm operand.
+        0x80 | 0x82 | 0x89 | 0xC2 | 0xE2 => {
+            let _ = addr::fetch_byte(cpu, bus);
+        }
+        // Zero-page (2 bytes, 3 cycles): zp addressing then dummy read.
+        0x04 | 0x44 | 0x64 => {
+            let a = addr::zp(cpu, bus);
+            let _ = bus.read(a);
+        }
+        // Zero-page,X (2 bytes, 4 cycles).
+        0x14 | 0x34 | 0x54 | 0x74 | 0xD4 | 0xF4 => {
+            let a = addr::zp_x(cpu, bus);
+            let _ = bus.read(a);
+        }
+        // Absolute (3 bytes, 4 cycles).
+        0x0C => {
+            let a = addr::abs(cpu, bus);
+            let _ = bus.read(a);
+        }
+        // Absolute,X (3 bytes, 4 or 5 cycles depending on page-cross).
+        0x1C | 0x3C | 0x5C | 0x7C | 0xDC | 0xFC => {
+            let a = addr::abs_x_read(cpu, bus);
+            let _ = bus.read(a);
+        }
         // Status flag ops
         0x18 => {
             let _ = bus.read(cpu.pc);

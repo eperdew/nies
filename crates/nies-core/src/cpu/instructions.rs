@@ -523,6 +523,61 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             let a = addr::abs_x_rmw(cpu, bus);
             rmw(cpu, bus, a, ror_value);
         }
+        // INC
+        0xE6 => {
+            let a = addr::zp(cpu, bus);
+            rmw(cpu, bus, a, inc_value);
+        }
+        0xF6 => {
+            let a = addr::zp_x(cpu, bus);
+            rmw(cpu, bus, a, inc_value);
+        }
+        0xEE => {
+            let a = addr::abs(cpu, bus);
+            rmw(cpu, bus, a, inc_value);
+        }
+        0xFE => {
+            let a = addr::abs_x_rmw(cpu, bus);
+            rmw(cpu, bus, a, inc_value);
+        }
+        // DEC
+        0xC6 => {
+            let a = addr::zp(cpu, bus);
+            rmw(cpu, bus, a, dec_value);
+        }
+        0xD6 => {
+            let a = addr::zp_x(cpu, bus);
+            rmw(cpu, bus, a, dec_value);
+        }
+        0xCE => {
+            let a = addr::abs(cpu, bus);
+            rmw(cpu, bus, a, dec_value);
+        }
+        0xDE => {
+            let a = addr::abs_x_rmw(cpu, bus);
+            rmw(cpu, bus, a, dec_value);
+        }
+        // INX / INY / DEX / DEY (implied)
+        0xE8 => {
+            let _ = bus.read(cpu.pc); // dummy read
+            cpu.x = cpu.x.wrapping_add(1);
+            set_nz(cpu, cpu.x);
+        }
+        0xC8 => {
+            let _ = bus.read(cpu.pc);
+            cpu.y = cpu.y.wrapping_add(1);
+            set_nz(cpu, cpu.y);
+        }
+        0xCA => {
+            let _ = bus.read(cpu.pc);
+            cpu.x = cpu.x.wrapping_sub(1);
+            set_nz(cpu, cpu.x);
+        }
+        0x88 => {
+            let _ = bus.read(cpu.pc);
+            cpu.y = cpu.y.wrapping_sub(1);
+            set_nz(cpu, cpu.y);
+        }
         _ => panic!(
             "CPU executed unimplemented opcode ${opcode:02X} at PC=${:04X}",
             cpu.pc.wrapping_sub(1)
@@ -645,6 +700,18 @@ fn ror_value(cpu: &mut Cpu, v: u8) -> u8 {
     if v & 0x01 != 0 {
         cpu.p |= flags::FLAG_C;
     }
+    set_nz(cpu, result);
+    result
+}
+
+fn inc_value(cpu: &mut Cpu, v: u8) -> u8 {
+    let result = v.wrapping_add(1);
+    set_nz(cpu, result);
+    result
+}
+
+fn dec_value(cpu: &mut Cpu, v: u8) -> u8 {
+    let result = v.wrapping_sub(1);
     set_nz(cpu, result);
     result
 }

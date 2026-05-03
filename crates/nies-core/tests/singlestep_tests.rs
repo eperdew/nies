@@ -587,3 +587,55 @@ fn opcode_6e_ror_abs() {
 fn opcode_7e_ror_absx() {
     run_opcode_tests(0x7E);
 }
+
+// Increment/Decrement (INC, DEC, INX, INY, DEX, DEY)
+#[test]
+fn opcode_e6_inc_zp() {
+    run_opcode_tests(0xE6);
+}
+#[test]
+fn opcode_f6_inc_zpx() {
+    run_opcode_tests(0xF6);
+}
+#[test]
+fn opcode_ee_inc_abs() {
+    run_opcode_tests(0xEE);
+}
+#[test]
+fn opcode_fe_inc_absx() {
+    run_opcode_tests(0xFE);
+}
+
+#[test]
+fn opcode_c6_dec_zp() {
+    run_opcode_tests(0xC6);
+}
+#[test]
+fn opcode_d6_dec_zpx() {
+    run_opcode_tests(0xD6);
+}
+#[test]
+fn opcode_ce_dec_abs() {
+    run_opcode_tests(0xCE);
+}
+#[test]
+fn opcode_de_dec_absx() {
+    run_opcode_tests(0xDE);
+}
+
+#[test]
+fn opcode_e8_inx() {
+    run_opcode_tests(0xE8);
+}
+#[test]
+fn opcode_c8_iny() {
+    run_opcode_tests(0xC8);
+}
+#[test]
+fn opcode_ca_dex() {
+    run_opcode_tests(0xCA);
+}
+#[test]
+fn opcode_88_dey() {
+    run_opcode_tests(0x88);
+}

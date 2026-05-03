@@ -48,6 +48,9 @@ Sources:
 | `blargg/cpu_instrs/15-brk.nes` | blargg via christopherpow `instr_test-v5/rom_singles/` | Public domain | `da7ae9a191c4483b540771e15b1f6f18df68f1d1ecd717b59ea8b1ee3596ec3e` |
 | `blargg/cpu_instrs/16-special.nes` | blargg via christopherpow `instr_test-v5/rom_singles/` | Public domain | `7d03410b61784e49920901e84b00a4f31a19078391f20005c6fac9036d2190f7` |
 | `blargg/instr_misc.nes` | blargg via christopherpow `instr_misc/instr_misc.nes` | Public domain | `b6762e20a285216304dfd2b5e1f192459354b23a5e48b2f5f9fb7cb0dac51243` |
+| `blargg/instr_timing/instr_timing.nes` | blargg via christopherpow `instr_timing/instr_timing.nes` | Public domain | `3d1bca14266f1e25b75a34ddd29c9df1ce9c6d990c8663a218f72e7861660fb0` |
+| `blargg/instr_timing/1-instr_timing.nes` | blargg via christopherpow `instr_timing/rom_singles/` | Public domain | `e260068839fe3d0402376e97e4ee15f5790ee77c701fd0700bba057527910222` |
+| `blargg/instr_timing/2-branch_timing.nes` | blargg via christopherpow `instr_timing/rom_singles/` | Public domain | `0afaa393f375844ab98834c1ecba7fa6d8c44880c8b6e738936d0f04a84c8538` |
 
 ## Third-party crates
 

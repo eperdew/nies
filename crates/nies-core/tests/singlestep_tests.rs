@@ -1119,3 +1119,29 @@ fn opcode_7b_rra_absy() {
 fn opcode_7f_rra_absx() {
     run_opcode_tests(0x7F);
 }
+
+// Stable illegals: immediate-mode bespoke (ANC, ALR, ARR, AXS, $EB SBC)
+#[test]
+fn opcode_0b_anc_imm() {
+    run_opcode_tests(0x0B);
+}
+#[test]
+fn opcode_2b_anc_imm() {
+    run_opcode_tests(0x2B);
+}
+#[test]
+fn opcode_4b_alr_imm() {
+    run_opcode_tests(0x4B);
+}
+#[test]
+fn opcode_6b_arr_imm() {
+    run_opcode_tests(0x6B);
+}
+#[test]
+fn opcode_cb_axs_imm() {
+    run_opcode_tests(0xCB);
+}
+#[test]
+fn opcode_eb_sbc_imm() {
+    run_opcode_tests(0xEB);
+}

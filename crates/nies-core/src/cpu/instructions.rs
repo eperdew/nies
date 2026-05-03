@@ -749,6 +749,57 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             let _ = bus.read(target); // dummy read at pulled PC pre-increment
             cpu.pc = target.wrapping_add(1);
         }
+        // Stable illegals: immediate-mode bespoke.
+        // ANC: A &= imm; C := bit 7 of A. Two opcodes alias the same op.
+        0x0B | 0x2B => {
+            let v = addr::fetch_byte(cpu, bus);
+            cpu.a &= v;
+            set_nz(cpu, cpu.a);
+            cpu.p &= !flags::FLAG_C;
+            if cpu.a & 0x80 != 0 {
+                cpu.p |= flags::FLAG_C;
+            }
+        }
+        // ALR / ASR: A &= imm; LSR A.
+        0x4B => {
+            let v = addr::fetch_byte(cpu, bus);
+            cpu.a &= v;
+            cpu.a = lsr_value(cpu, cpu.a);
+        }
+        // ARR: A &= imm; ROR A; bespoke V/C flag math from result bits.
+        0x6B => {
+            let v = addr::fetch_byte(cpu, bus);
+            cpu.a &= v;
+            let old_c = cpu.p & flags::FLAG_C;
+            let result = (cpu.a >> 1) | (old_c << 7);
+            cpu.a = result;
+            set_nz(cpu, result);
+            cpu.p &= !(flags::FLAG_C | flags::FLAG_V);
+            if result & 0x40 != 0 {
+                cpu.p |= flags::FLAG_C;
+            }
+            // V := bit 5 XOR bit 6 of result.
+            if ((result >> 5) ^ (result >> 6)) & 0x01 != 0 {
+                cpu.p |= flags::FLAG_V;
+            }
+        }
+        // AXS / SBX: X := (A & X) - imm (unsigned); C set if no borrow.
+        0xCB => {
+            let v = addr::fetch_byte(cpu, bus);
+            let lhs = cpu.a & cpu.x;
+            let result = lhs.wrapping_sub(v);
+            cpu.p &= !flags::FLAG_C;
+            if lhs >= v {
+                cpu.p |= flags::FLAG_C;
+            }
+            cpu.x = result;
+            set_nz(cpu, result);
+        }
+        // $EB: undocumented SBC immediate — alias for $E9.
+        0xEB => {
+            let v = addr::fetch_byte(cpu, bus);
+            adc_core(cpu, v ^ 0xFF);
+        }
         // Stable illegals: SLO (ASL + ORA combined RMW).
         0x03 => {
             let a = addr::ind_x(cpu, bus);

@@ -1,0 +1,7 @@
+# Vendored test ROM manifest.
+#
+# This file is a placeholder; entries are added as ROMs are vendored
+# in subsequent plan tasks (M1 Tasks 39-43). Each entry should record
+# the ROM's source, redistribution license, and SHA-256 hash. See
+# `LICENSES.md` at the repository root for the human-readable
+# provenance table.

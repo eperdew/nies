@@ -63,6 +63,42 @@ impl Cpu {
         let hi = bus.read(0xFFFD) as u16;
         self.pc = (hi << 8) | lo;
     }
+
+    /// Execute one CPU instruction. Handles pending NMI/IRQ at the
+    /// instruction boundary before fetching the next opcode.
+    pub fn step(&mut self, bus: &mut Bus) {
+        if self.jammed {
+            // KIL/JAM/HLT halts the CPU until reset; just keep ticking
+            // the bus so PPU/APU continue running.
+            let _ = bus.read(self.pc);
+            return;
+        }
+
+        // Interrupt servicing happens at instruction boundaries.
+        if self.nmi_pending {
+            self.service_nmi(bus);
+            return;
+        }
+        if self.irq_pending && (self.p & flags::FLAG_I) == 0 {
+            self.service_irq(bus);
+            return;
+        }
+
+        let opcode = bus.read(self.pc);
+        self.pc = self.pc.wrapping_add(1);
+        let handler = instructions::OPCODES[opcode as usize];
+        handler(self, bus);
+    }
+
+    fn service_nmi(&mut self, _bus: &mut Bus) {
+        // Filled in by Task 38.
+        unimplemented!("NMI service in Task 38");
+    }
+
+    fn service_irq(&mut self, _bus: &mut Bus) {
+        // Filled in by Task 39.
+        unimplemented!("IRQ service in Task 39");
+    }
 }
 
 #[cfg(test)]

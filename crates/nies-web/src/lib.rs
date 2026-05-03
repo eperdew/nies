@@ -44,6 +44,11 @@ impl GpuState {
             })
             .await
             .expect("request adapter");
+        // WebGL2 enforces hard limits (max texture size, max bind groups, etc.)
+        // well below desktop wgpu defaults. Downlevel here so the same render
+        // code works under either the webgpu or webgl backend; the native
+        // binary uses DeviceDescriptor::default() because Metal/Vulkan/DX12
+        // have no equivalent constraint.
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 required_limits: wgpu::Limits::downlevel_webgl2_defaults()
@@ -153,6 +158,13 @@ impl App {
 
 impl ApplicationHandler<UserEvent> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        // winit may emit Resumed multiple times in suspend/resume scenarios
+        // (mobile / PWA). Re-bootstrapping would create a second Window and
+        // a second GpuReady future; guard against it.
+        if self.window.is_some() {
+            return;
+        }
+
         let canvas = web_sys::window()
             .and_then(|w| w.document())
             .and_then(|d| d.get_element_by_id("nies-canvas"))

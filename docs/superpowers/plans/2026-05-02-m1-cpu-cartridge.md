@@ -301,7 +301,7 @@ pub enum NesFormat {
 }
 
 /// A parsed NES cartridge.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cartridge {
     pub format: NesFormat,
     pub mapper_id: u16,
@@ -1943,8 +1943,9 @@ zstd = "0.13"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tar = "0.4"
-once_cell = "1"
 ```
+
+> **Note:** the original plan also listed `once_cell = "1"`, but the actual harness in Task 12 uses `std::sync::OnceLock` (stdlib) and never imports `once_cell`. The dep was dropped in a follow-up commit.
 
 - [ ] **Step 3: Verify the tarball decompresses + parses**
 

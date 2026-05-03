@@ -358,6 +358,76 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             let v = bus.read(a);
             adc_core(cpu, v ^ 0xFF);
         }
+        // CMP
+        0xC9 => {
+            let v = addr::fetch_byte(cpu, bus);
+            compare(cpu, cpu.a, v);
+        }
+        0xC5 => {
+            let a = addr::zp(cpu, bus);
+            let v = bus.read(a);
+            compare(cpu, cpu.a, v);
+        }
+        0xD5 => {
+            let a = addr::zp_x(cpu, bus);
+            let v = bus.read(a);
+            compare(cpu, cpu.a, v);
+        }
+        0xCD => {
+            let a = addr::abs(cpu, bus);
+            let v = bus.read(a);
+            compare(cpu, cpu.a, v);
+        }
+        0xDD => {
+            let a = addr::abs_x_read(cpu, bus);
+            let v = bus.read(a);
+            compare(cpu, cpu.a, v);
+        }
+        0xD9 => {
+            let a = addr::abs_y_read(cpu, bus);
+            let v = bus.read(a);
+            compare(cpu, cpu.a, v);
+        }
+        0xC1 => {
+            let a = addr::ind_x(cpu, bus);
+            let v = bus.read(a);
+            compare(cpu, cpu.a, v);
+        }
+        0xD1 => {
+            let a = addr::ind_y_read(cpu, bus);
+            let v = bus.read(a);
+            compare(cpu, cpu.a, v);
+        }
+        // CPX
+        0xE0 => {
+            let v = addr::fetch_byte(cpu, bus);
+            compare(cpu, cpu.x, v);
+        }
+        0xE4 => {
+            let a = addr::zp(cpu, bus);
+            let v = bus.read(a);
+            compare(cpu, cpu.x, v);
+        }
+        0xEC => {
+            let a = addr::abs(cpu, bus);
+            let v = bus.read(a);
+            compare(cpu, cpu.x, v);
+        }
+        // CPY
+        0xC0 => {
+            let v = addr::fetch_byte(cpu, bus);
+            compare(cpu, cpu.y, v);
+        }
+        0xC4 => {
+            let a = addr::zp(cpu, bus);
+            let v = bus.read(a);
+            compare(cpu, cpu.y, v);
+        }
+        0xCC => {
+            let a = addr::abs(cpu, bus);
+            let v = bus.read(a);
+            compare(cpu, cpu.y, v);
+        }
         _ => panic!(
             "CPU executed unimplemented opcode ${opcode:02X} at PC=${:04X}",
             cpu.pc.wrapping_sub(1)
@@ -408,6 +478,17 @@ fn adc_core(cpu: &mut Cpu, operand: u8) {
         cpu.p |= flags::FLAG_V;
     }
     cpu.a = result;
+    set_nz(cpu, result);
+}
+
+/// CMP/CPX/CPY: register - operand. Sets N/Z from low byte of difference,
+/// C if register >= operand. Register itself is not modified.
+fn compare(cpu: &mut Cpu, reg: u8, operand: u8) {
+    let result = reg.wrapping_sub(operand);
+    cpu.p &= !flags::FLAG_C;
+    if reg >= operand {
+        cpu.p |= flags::FLAG_C;
+    }
     set_nz(cpu, result);
 }
 

@@ -432,3 +432,63 @@ fn opcode_e1_sbc_indx() {
 fn opcode_f1_sbc_indy() {
     run_opcode_tests(0xF1);
 }
+
+// Compare family (CMP, CPX, CPY)
+#[test]
+fn opcode_c9_cmp_imm() {
+    run_opcode_tests(0xC9);
+}
+#[test]
+fn opcode_c5_cmp_zp() {
+    run_opcode_tests(0xC5);
+}
+#[test]
+fn opcode_d5_cmp_zpx() {
+    run_opcode_tests(0xD5);
+}
+#[test]
+fn opcode_cd_cmp_abs() {
+    run_opcode_tests(0xCD);
+}
+#[test]
+fn opcode_dd_cmp_absx() {
+    run_opcode_tests(0xDD);
+}
+#[test]
+fn opcode_d9_cmp_absy() {
+    run_opcode_tests(0xD9);
+}
+#[test]
+fn opcode_c1_cmp_indx() {
+    run_opcode_tests(0xC1);
+}
+#[test]
+fn opcode_d1_cmp_indy() {
+    run_opcode_tests(0xD1);
+}
+
+#[test]
+fn opcode_e0_cpx_imm() {
+    run_opcode_tests(0xE0);
+}
+#[test]
+fn opcode_e4_cpx_zp() {
+    run_opcode_tests(0xE4);
+}
+#[test]
+fn opcode_ec_cpx_abs() {
+    run_opcode_tests(0xEC);
+}
+
+#[test]
+fn opcode_c0_cpy_imm() {
+    run_opcode_tests(0xC0);
+}
+#[test]
+fn opcode_c4_cpy_zp() {
+    run_opcode_tests(0xC4);
+}
+#[test]
+fn opcode_cc_cpy_abs() {
+    run_opcode_tests(0xCC);
+}

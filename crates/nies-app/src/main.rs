@@ -27,7 +27,8 @@ struct GpuState {
 
 impl GpuState {
     async fn new(window: Arc<Window>) -> Self {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
+        let instance =
+            wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
         let surface = instance
             .create_surface(window.clone())
             .expect("create wgpu surface");
@@ -77,7 +78,8 @@ impl GpuState {
 
     fn render(&mut self) -> RenderOutcome {
         let frame = match self.surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(f) | wgpu::CurrentSurfaceTexture::Suboptimal(f) => f,
+            wgpu::CurrentSurfaceTexture::Success(f)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(f) => f,
             wgpu::CurrentSurfaceTexture::Outdated => {
                 self.surface.configure(&self.device, &self.config);
                 return RenderOutcome::Reconfigured;
@@ -142,12 +144,7 @@ impl ApplicationHandler for App {
         self.gpu = Some(gpu);
     }
 
-    fn window_event(
-        &mut self,
-        event_loop: &ActiveEventLoop,
-        _id: WindowId,
-        event: WindowEvent,
-    ) {
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         let Some(gpu) = self.gpu.as_mut() else {
             return;
         };
@@ -182,7 +179,5 @@ fn main() {
     log::info!("nies-app starting");
     let event_loop = EventLoop::new().expect("create event loop");
     let mut app = App::default();
-    event_loop
-        .run_app(&mut app)
-        .expect("run event loop");
+    event_loop.run_app(&mut app).expect("run event loop");
 }

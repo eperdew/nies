@@ -578,6 +578,31 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             cpu.y = cpu.y.wrapping_sub(1);
             set_nz(cpu, cpu.y);
         }
+        // Stack ops
+        0x48 => {
+            // PHA: dummy read at PC, push A.
+            let _ = bus.read(cpu.pc);
+            push(cpu, bus, cpu.a);
+        }
+        0x08 => {
+            // PHP: dummy read at PC, push P with B|U set.
+            let _ = bus.read(cpu.pc);
+            push(cpu, bus, cpu.p | flags::FLAG_B | flags::FLAG_U);
+        }
+        0x68 => {
+            // PLA: dummy read at PC, dummy stack read, pull A, set N+Z.
+            let _ = bus.read(cpu.pc);
+            let _ = bus.read(0x0100 | cpu.sp as u16);
+            cpu.a = pull(cpu, bus);
+            set_nz(cpu, cpu.a);
+        }
+        0x28 => {
+            // PLP: dummy read at PC, dummy stack read, pull P (mask B, set U).
+            let _ = bus.read(cpu.pc);
+            let _ = bus.read(0x0100 | cpu.sp as u16);
+            let pulled = pull(cpu, bus);
+            cpu.p = (pulled & !flags::FLAG_B) | flags::FLAG_U;
+        }
         // JMP
         0x4C => {
             cpu.pc = addr::abs(cpu, bus);

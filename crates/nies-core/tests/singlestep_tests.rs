@@ -691,3 +691,21 @@ fn opcode_20_jsr() {
 fn opcode_60_rts() {
     run_opcode_tests(0x60);
 }
+
+// Stack ops
+#[test]
+fn opcode_48_pha() {
+    run_opcode_tests(0x48);
+}
+#[test]
+fn opcode_08_php() {
+    run_opcode_tests(0x08);
+}
+#[test]
+fn opcode_68_pla() {
+    run_opcode_tests(0x68);
+}
+#[test]
+fn opcode_28_plp() {
+    run_opcode_tests(0x28);
+}

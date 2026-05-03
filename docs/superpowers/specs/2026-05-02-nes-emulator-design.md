@@ -751,6 +751,8 @@ All debugger functionality from §6, minus conditional breakpoints.
 - Heavy panels repaint throttled to 30 Hz.
 - F12 toggle.
 
+**Carry-over from M1: introduce typed `OpCode` enum.** The CPU dispatch in `crates/nies-core/src/cpu/instructions.rs` matches on raw `u8` opcode bytes at M1 because the only consumer was the dispatch itself. M9 introduces multiple consumers (disassembly renderer, conditional-breakpoint expression language, trace-row display, watchpoint editor) that all benefit from a typed enum. At that point: define `enum OpCode` with one variant per *semantic* operation (e.g., `Lda { mode: AddrMode }`, not 8 distinct LDA variants), provide `From<u8>` / `TryFrom<u8>`, refactor the dispatch to match on the enum. Naming the variants gets a tiebreaker via the disassembly renderer — whatever the disassembler prints becomes the variant name, propagated everywhere. Approach reduces 256 hex literals to ~50 semantic operations + an `AddrMode` enum, which is more compact than the M1 dispatch *and* useful to multiple sites.
+
 **Gate:** manual exercise — set PC breakpoint inside SMB1, hit it, step over a JSR, step out, step back ~50 instructions, set watchpoint on player Y, observe firing on jump.
 
 ### M10 — Polish

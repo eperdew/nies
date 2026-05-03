@@ -5,6 +5,26 @@
 //! parameterize handlers on `B: BusLike`. Generic function pointers can't
 //! live in a static table, so we dispatch via a `match` switch instead.
 //! The match is monomorphized per concrete bus type at compile time.
+//!
+//! # M9 follow-up: typed `OpCode` enum
+//!
+//! The `match opcode { 0xNN => ... }` form is intentional at M1: the only
+//! consumer of opcode identity right now is this dispatch function and
+//! the SingleStepTests `opcode_tests!` macro. Introducing a 256-variant
+//! `enum OpCode` would shift 256 lines from raw hex to named variants
+//! without removing any, and would force a naming bikeshed for the ~80
+//! opcodes that have no community-canonical name (12 identical JAM
+//! variants, ~28 unofficial NOPs across 6 addressing modes, the
+//! unstable SHX/SHY/SHA/TAS/XAA/LXA illegals).
+//!
+//! At M9 (debugger UI) the typed enum gets multiple consumers:
+//! disassembly renderer, conditional-breakpoint expression language,
+//! trace-row display, watchpoint editor. That's when the bikeshed gets
+//! a tiebreaker — whatever the disassembler renders becomes the
+//! variant name, propagated everywhere — and the cost of having the
+//! enum (256 variants, conversion table) is paid back by multiple
+//! sites pattern-matching on it directly. Until then, raw hex is
+//! the lighter design.
 
 use crate::bus::BusLike;
 use crate::cpu::Cpu;

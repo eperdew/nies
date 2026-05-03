@@ -1060,7 +1060,6 @@ name = "nies-core"
 version = "0.0.0"
 dependencies = [
  "log",
- "once_cell",
  "serde",
  "serde_json",
  "sha2",

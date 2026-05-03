@@ -1092,6 +1092,16 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             let a = addr::abs_x_rmw(cpu, bus);
             rmw(cpu, bus, a, isc_value);
         }
+        // Stable illegal: LAS / LAR (abs,Y). A := X := S := value AND S.
+        0xBB => {
+            let a = addr::abs_y_read(cpu, bus);
+            let v = bus.read(a);
+            let result = v & cpu.sp;
+            cpu.a = result;
+            cpu.x = result;
+            cpu.sp = result;
+            set_nz(cpu, result);
+        }
         // Branches
         0x90 => branch_if(cpu, bus, (cpu.p & flags::FLAG_C) == 0), // BCC
         0xB0 => branch_if(cpu, bus, (cpu.p & flags::FLAG_C) != 0), // BCS
@@ -1101,10 +1111,6 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
         0x10 => branch_if(cpu, bus, (cpu.p & flags::FLAG_N) == 0), // BPL
         0x50 => branch_if(cpu, bus, (cpu.p & flags::FLAG_V) == 0), // BVC
         0x70 => branch_if(cpu, bus, (cpu.p & flags::FLAG_V) != 0), // BVS
-        _ => panic!(
-            "CPU executed unimplemented opcode ${opcode:02X} at PC=${:04X}",
-            cpu.pc.wrapping_sub(1)
-        ),
     }
 }
 

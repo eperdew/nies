@@ -1227,3 +1227,9 @@ fn opcode_d2_jam() {
 fn opcode_f2_jam() {
     run_opcode_tests(0xF2);
 }
+
+// Stable illegal: LAS / LAR (A := X := S := value AND S)
+#[test]
+fn opcode_bb_las_absy() {
+    run_opcode_tests(0xBB);
+}

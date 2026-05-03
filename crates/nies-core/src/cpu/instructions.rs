@@ -578,6 +578,37 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             cpu.y = cpu.y.wrapping_sub(1);
             set_nz(cpu, cpu.y);
         }
+        // Transfer (register-to-register)
+        0xAA => {
+            let _ = bus.read(cpu.pc);
+            cpu.x = cpu.a;
+            set_nz(cpu, cpu.x);
+        }
+        0xA8 => {
+            let _ = bus.read(cpu.pc);
+            cpu.y = cpu.a;
+            set_nz(cpu, cpu.y);
+        }
+        0x8A => {
+            let _ = bus.read(cpu.pc);
+            cpu.a = cpu.x;
+            set_nz(cpu, cpu.a);
+        }
+        0x98 => {
+            let _ = bus.read(cpu.pc);
+            cpu.a = cpu.y;
+            set_nz(cpu, cpu.a);
+        }
+        0xBA => {
+            let _ = bus.read(cpu.pc);
+            cpu.x = cpu.sp;
+            set_nz(cpu, cpu.x);
+        }
+        0x9A => {
+            // TXS: no flag changes.
+            let _ = bus.read(cpu.pc);
+            cpu.sp = cpu.x;
+        }
         // BRK
         0x00 => {
             // Read padding byte at PC and advance (BRK is treated as 2-byte).

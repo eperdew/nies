@@ -719,3 +719,29 @@ fn opcode_00_brk() {
 fn opcode_40_rti() {
     run_opcode_tests(0x40);
 }
+
+// Transfer (register-to-register)
+#[test]
+fn opcode_aa_tax() {
+    run_opcode_tests(0xAA);
+}
+#[test]
+fn opcode_a8_tay() {
+    run_opcode_tests(0xA8);
+}
+#[test]
+fn opcode_8a_txa() {
+    run_opcode_tests(0x8A);
+}
+#[test]
+fn opcode_98_tya() {
+    run_opcode_tests(0x98);
+}
+#[test]
+fn opcode_ba_tsx() {
+    run_opcode_tests(0xBA);
+}
+#[test]
+fn opcode_9a_txs() {
+    run_opcode_tests(0x9A);
+}

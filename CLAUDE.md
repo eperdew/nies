@@ -143,3 +143,4 @@ For M1 specifically:
 - Snapshot/restore round-trip integration — M7.
 
 The trait shapes are designed against these later milestones (e.g., `Bus::tick`'s DMC fetch service path is wired but inert; `MapperImpl` has `notify_a12` with default no-op for MMC3-readiness). When working on M1, **don't preempt later milestones** — placeholder shapes are deliberate.
+

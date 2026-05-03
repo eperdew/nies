@@ -673,3 +673,21 @@ fn opcode_50_bvc() {
 fn opcode_70_bvs() {
     run_opcode_tests(0x70);
 }
+
+// JMP / JSR / RTS
+#[test]
+fn opcode_4c_jmp_abs() {
+    run_opcode_tests(0x4C);
+}
+#[test]
+fn opcode_6c_jmp_ind() {
+    run_opcode_tests(0x6C);
+}
+#[test]
+fn opcode_20_jsr() {
+    run_opcode_tests(0x20);
+}
+#[test]
+fn opcode_60_rts() {
+    run_opcode_tests(0x60);
+}

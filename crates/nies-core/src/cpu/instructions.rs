@@ -578,6 +578,37 @@ pub fn dispatch<B: BusLike>(opcode: u8, cpu: &mut Cpu, bus: &mut B) {
             cpu.y = cpu.y.wrapping_sub(1);
             set_nz(cpu, cpu.y);
         }
+        // JMP
+        0x4C => {
+            cpu.pc = addr::abs(cpu, bus);
+        }
+        0x6C => {
+            cpu.pc = addr::ind(cpu, bus);
+        }
+        // JSR
+        0x20 => {
+            // PC at entry points at the low operand byte (opcode + 1).
+            let lo = addr::fetch_byte(cpu, bus) as u16;
+            // Internal op: dummy read of stack.
+            let _ = bus.read(0x0100 | cpu.sp as u16);
+            // Push PCH then PCL of the address of the last instruction byte
+            // (opcode + 2 = current PC).
+            let return_addr = cpu.pc;
+            push(cpu, bus, (return_addr >> 8) as u8);
+            push(cpu, bus, (return_addr & 0xFF) as u8);
+            let hi = addr::fetch_byte(cpu, bus) as u16;
+            cpu.pc = (hi << 8) | lo;
+        }
+        // RTS
+        0x60 => {
+            let _ = bus.read(cpu.pc); // dummy read at PC
+            let _ = bus.read(0x0100 | cpu.sp as u16); // dummy stack read pre-increment
+            let lo = pull(cpu, bus) as u16;
+            let hi = pull(cpu, bus) as u16;
+            let target = (hi << 8) | lo;
+            let _ = bus.read(target); // dummy read at pulled PC pre-increment
+            cpu.pc = target.wrapping_add(1);
+        }
         // Branches
         0x90 => branch_if(cpu, bus, (cpu.p & flags::FLAG_C) == 0), // BCC
         0xB0 => branch_if(cpu, bus, (cpu.p & flags::FLAG_C) != 0), // BCS
@@ -733,6 +764,18 @@ fn set_nz(cpu: &mut Cpu, val: u8) {
     if val & 0x80 != 0 {
         cpu.p |= flags::FLAG_N;
     }
+}
+
+/// Push a byte onto the stack at $0100 + S, then decrement S.
+fn push<B: BusLike>(cpu: &mut Cpu, bus: &mut B, val: u8) {
+    bus.write(0x0100 | cpu.sp as u16, val);
+    cpu.sp = cpu.sp.wrapping_sub(1);
+}
+
+/// Increment S, then pull a byte from the stack at $0100 + S.
+fn pull<B: BusLike>(cpu: &mut Cpu, bus: &mut B) -> u8 {
+    cpu.sp = cpu.sp.wrapping_add(1);
+    bus.read(0x0100 | cpu.sp as u16)
 }
 
 /// Conditional branch helper. Reads the signed offset, then if `taken`,

@@ -286,9 +286,9 @@ mod tests {
     #[test]
     fn read_advances_ppu_three_dots() {
         let mut bus = fake_bus();
-        let dots_before = bus.ppu.dots;
+        let dots_before = bus.ppu.state.dot;
         let _ = bus.read(0x0000);
-        assert_eq!(bus.ppu.dots, dots_before + 3);
+        assert_eq!(bus.ppu.state.dot, dots_before + 3);
     }
 
     #[test]

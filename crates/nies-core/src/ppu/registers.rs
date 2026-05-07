@@ -46,6 +46,39 @@ impl Registers {
     pub fn reset(&mut self) {
         *self = Self::default();
     }
+
+    /// PPUCTRL ($2000) write. Latches the byte and updates t bits 10-11
+    /// from byte bits 0-1 (nametable select).
+    pub fn write_ppuctrl(&mut self, val: u8) {
+        self.ctrl = val;
+        let nt_bits = (val as u16 & 0b11) << 10;
+        self.t = (self.t & !0b0000_1100_0000_0000) | nt_bits;
+    }
+
+    /// PPUCTRL accessors.
+    pub fn nmi_enabled(&self) -> bool {
+        self.ctrl & 0x80 != 0
+    }
+    pub fn sprite_size_8x16(&self) -> bool {
+        self.ctrl & 0x20 != 0
+    }
+    pub fn bg_pattern_table_base(&self) -> u16 {
+        if self.ctrl & 0x10 != 0 {
+            0x1000
+        } else {
+            0x0000
+        }
+    }
+    pub fn sprite_pattern_table_base(&self) -> u16 {
+        if self.ctrl & 0x08 != 0 {
+            0x1000
+        } else {
+            0x0000
+        }
+    }
+    pub fn vram_increment(&self) -> u16 {
+        if self.ctrl & 0x04 != 0 { 32 } else { 1 }
+    }
 }
 
 #[cfg(test)]
@@ -77,5 +110,26 @@ mod tests {
         r.read_buffer = 0x42;
         r.reset();
         assert_eq!(r, Registers::default());
+    }
+
+    #[test]
+    fn ppuctrl_write_sets_nametable_bits_in_t() {
+        let mut r = Registers::new();
+        r.write_ppuctrl(0b0000_0011); // nametable select = 3
+        assert_eq!(r.ctrl, 0b0000_0011);
+        assert_eq!(r.t & 0b0000_1100_0000_0000, 0b0000_1100_0000_0000);
+    }
+
+    #[test]
+    fn ppuctrl_write_preserves_other_t_bits() {
+        let mut r = Registers::new();
+        r.t = 0b0111_0011_1111_1111; // some unrelated bits set
+        r.write_ppuctrl(0b0000_0001); // nametable = 1
+        // Bits 10-11 of t should be 01; other bits unchanged.
+        assert_eq!(r.t & 0b0000_1100_0000_0000, 0b0000_0100_0000_0000);
+        assert_eq!(
+            r.t & !0b0000_1100_0000_0000,
+            0b0111_0011_1111_1111 & !0b0000_1100_0000_0000
+        );
     }
 }

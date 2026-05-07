@@ -101,6 +101,18 @@ impl Registers {
     pub fn greyscale(&self) -> bool {
         self.mask & 0x01 != 0
     }
+
+    /// PPUSTATUS ($2002) read. Returns bits 5-7 from the latched status
+    /// or'd with bits 0-4 from the open-bus latch. Side effects: clears
+    /// bit 7 (vblank) and the w toggle.
+    pub fn read_ppustatus(&mut self) -> u8 {
+        let v = (self.status & 0xE0) | (self.open_bus & 0x1F);
+        self.status &= 0x7F;
+        self.w = false;
+        // Reads also load the open-bus latch with the high 3 bits.
+        self.open_bus = (self.open_bus & 0x1F) | (v & 0xE0);
+        v
+    }
 }
 
 #[cfg(test)]
@@ -174,5 +186,25 @@ mod tests {
         assert!(r.rendering_enabled());
         r.write_ppumask(0b0000_0001); // greyscale only, no rendering
         assert!(!r.rendering_enabled());
+    }
+
+    #[test]
+    fn ppustatus_read_clears_bit7_and_w() {
+        let mut r = Registers::new();
+        r.status = 0b1010_0000;
+        r.w = true;
+        let v = r.read_ppustatus();
+        assert_eq!(v & 0xE0, 0b1010_0000); // bits 5-7 returned as-set BEFORE clear
+        assert_eq!(r.status & 0x80, 0); // vblank bit cleared after read
+        assert!(!r.w); // w toggle cleared
+    }
+
+    #[test]
+    fn ppustatus_read_low_bits_come_from_open_bus() {
+        let mut r = Registers::new();
+        r.status = 0xE0;
+        r.open_bus = 0x1F;
+        let v = r.read_ppustatus();
+        assert_eq!(v, 0xE0 | 0x1F);
     }
 }

@@ -1,16 +1,24 @@
-//! PPU stub. Real implementation lands in M2 (spec §3.5).
+//! PPU — Picture Processing Unit (RP2C02 NTSC variant).
 //!
-//! At M1 this is just a counter that records the number of dots advanced,
-//! so the bus can call `Ppu::step(&mut self, mapper)` from inside its
-//! tick loop without panicking.
+//! Per-dot state machine called from `Bus::tick` 3 times per CPU cycle.
+//! Module layout per the M2 design spec §2:
+//! - state.rs: dot/scanline counters, frame parity
+//! - registers.rs (Task 4+): PPUCTRL/MASK/STATUS/etc. + Loopy v/t/x/w
+//! - vram.rs (Task 10): 2KB nametable RAM + mirroring
+//! - oam.rs (Task 11): 256B primary OAM + 32B secondary OAM
+//! - palette.rs (Task 12): 32-byte palette RAM with $3F1x mirrors
+//! - background.rs (Task 26+): 8-cycle fetch pipeline
+//! - sprite.rs (Task 39+): sprite eval, fetch, sprite-0 hit
+
+pub mod state;
 
 use crate::mapper::MapperKind;
+use serde::{Deserialize, Serialize};
+use state::PpuState;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Ppu {
-    /// PPU dots elapsed since power-on. M2 will replace this with full
-    /// state: scanline, dot, register file, OAM, etc.
-    pub dots: u64,
+    pub state: PpuState,
 }
 
 impl Ppu {
@@ -18,10 +26,10 @@ impl Ppu {
         Self::default()
     }
 
-    /// Advance the PPU by one dot. M1 stub: just increments the counter.
-    /// `_mapper` is unused at M1 but reserved for M2's A12 hook.
+    /// Advance the PPU by one dot. M2 unit 1: just advances the counter.
+    /// `_mapper` will be used by later tasks for CHR access and notify_a12.
     pub fn step(&mut self, _mapper: &mut MapperKind) {
-        self.dots = self.dots.wrapping_add(1);
+        self.state.advance_dot();
     }
 }
 
@@ -29,7 +37,6 @@ impl Ppu {
 mod tests {
     use super::*;
     use crate::cartridge::{Cartridge, Mirroring, NesFormat};
-    use crate::mapper::MapperKind;
 
     fn fake_mapper() -> MapperKind {
         let cart = Cartridge {
@@ -48,12 +55,11 @@ mod tests {
     }
 
     #[test]
-    fn step_increments_dot_counter() {
+    fn step_advances_one_dot() {
         let mut ppu = Ppu::new();
         let mut mapper = fake_mapper();
-        for _ in 0..100 {
-            ppu.step(&mut mapper);
-        }
-        assert_eq!(ppu.dots, 100);
+        ppu.step(&mut mapper);
+        assert_eq!(ppu.state.dot, 1);
+        assert_eq!(ppu.state.scanline, 0);
     }
 }

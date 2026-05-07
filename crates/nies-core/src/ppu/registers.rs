@@ -79,6 +79,28 @@ impl Registers {
     pub fn vram_increment(&self) -> u16 {
         if self.ctrl & 0x04 != 0 { 32 } else { 1 }
     }
+
+    pub fn write_ppumask(&mut self, val: u8) {
+        self.mask = val;
+    }
+    pub fn show_bg(&self) -> bool {
+        self.mask & 0x08 != 0
+    }
+    pub fn show_sprites(&self) -> bool {
+        self.mask & 0x10 != 0
+    }
+    pub fn rendering_enabled(&self) -> bool {
+        self.show_bg() || self.show_sprites()
+    }
+    pub fn show_bg_left8(&self) -> bool {
+        self.mask & 0x02 != 0
+    }
+    pub fn show_sprites_left8(&self) -> bool {
+        self.mask & 0x04 != 0
+    }
+    pub fn greyscale(&self) -> bool {
+        self.mask & 0x01 != 0
+    }
 }
 
 #[cfg(test)]
@@ -131,5 +153,26 @@ mod tests {
             r.t & !0b0000_1100_0000_0000,
             0b0111_0011_1111_1111 & !0b0000_1100_0000_0000
         );
+    }
+
+    #[test]
+    fn ppumask_write_latches_byte() {
+        let mut r = Registers::new();
+        r.write_ppumask(0b0001_1110);
+        assert_eq!(r.mask, 0b0001_1110);
+    }
+
+    #[test]
+    fn ppumask_rendering_enabled_iff_bg_or_sprite_bit_set() {
+        let mut r = Registers::new();
+        assert!(!r.rendering_enabled());
+        r.write_ppumask(0b0000_1000); // bg only
+        assert!(r.rendering_enabled());
+        r.write_ppumask(0b0001_0000); // sprite only
+        assert!(r.rendering_enabled());
+        r.write_ppumask(0b0001_1000); // both
+        assert!(r.rendering_enabled());
+        r.write_ppumask(0b0000_0001); // greyscale only, no rendering
+        assert!(!r.rendering_enabled());
     }
 }

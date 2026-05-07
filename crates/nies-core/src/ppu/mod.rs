@@ -29,7 +29,7 @@ impl Ppu {
     /// Advance the PPU by one dot. M2 unit 1: just advances the counter.
     /// `_mapper` will be used by later tasks for CHR access and notify_a12.
     pub fn step(&mut self, _mapper: &mut MapperKind) {
-        self.state.advance_dot();
+        self.state.advance_dot_with_rendering(false);
     }
 }
 

@@ -42,6 +42,20 @@ impl PpuState {
             }
         }
     }
+
+    /// Advance one dot, honoring the odd-frame skip when rendering is
+    /// enabled: at (scanline 261, dot 339, odd frame, rendering_enabled),
+    /// the next dot is (0, 0) instead of (261, 340).
+    pub fn advance_dot_with_rendering(&mut self, rendering_enabled: bool) {
+        if rendering_enabled && self.frame_parity && self.scanline == 261 && self.dot == 339 {
+            self.dot = 0;
+            self.scanline = 0;
+            self.frame_parity = !self.frame_parity;
+            self.frames += 1;
+            return;
+        }
+        self.advance_dot();
+    }
 }
 
 impl Default for PpuState {
@@ -84,5 +98,41 @@ mod tests {
         }
         assert_eq!(s.frames, 2);
         assert!(!s.frame_parity);
+    }
+
+    #[test]
+    fn odd_frame_skips_dot_339_when_rendering_enabled() {
+        let mut s = PpuState::new();
+        s.frame_parity = true;
+        s.scanline = 261;
+        s.dot = 339;
+        s.advance_dot_with_rendering(true);
+        assert_eq!(s.scanline, 0);
+        assert_eq!(s.dot, 0);
+        assert_eq!(s.frames, 1);
+        assert!(!s.frame_parity); // toggled by frame wrap
+    }
+
+    #[test]
+    fn even_frame_does_not_skip_dot_339() {
+        let mut s = PpuState::new();
+        s.frame_parity = false;
+        s.scanline = 261;
+        s.dot = 339;
+        s.advance_dot_with_rendering(true);
+        assert_eq!(s.scanline, 261);
+        assert_eq!(s.dot, 340);
+        assert_eq!(s.frames, 0);
+    }
+
+    #[test]
+    fn odd_frame_does_not_skip_when_rendering_disabled() {
+        let mut s = PpuState::new();
+        s.frame_parity = true;
+        s.scanline = 261;
+        s.dot = 339;
+        s.advance_dot_with_rendering(false);
+        assert_eq!(s.scanline, 261);
+        assert_eq!(s.dot, 340);
     }
 }

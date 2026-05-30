@@ -364,10 +364,12 @@ mod tests {
             dma_cycles == 513 || dma_cycles == 514,
             "expected 513 or 514 cycles, got {dma_cycles}"
         );
-        // OAM should now hold 0..255.
+        // OAM should now hold 0..255 — except attribute bytes (every 4th
+        // byte starting at offset 2) have bits 2-4 masked off in hardware.
         for i in 0..256u16 {
             let idx = i as u8;
-            assert_eq!(bus.ppu.oam.read(idx), idx, "oam[{idx}] mismatch");
+            let expected = if idx & 0x03 == 0x02 { idx & 0xE3 } else { idx };
+            assert_eq!(bus.ppu.oam.read(idx), expected, "oam[{idx}] mismatch");
         }
     }
 

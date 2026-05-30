@@ -33,8 +33,15 @@ impl Oam {
     pub fn read(&self, addr: u8) -> u8 {
         self.primary[addr as usize]
     }
+    /// Write a byte into primary OAM. For attribute bytes (those at
+    /// addresses where `addr & 3 == 2`), bits 2-4 are unimplemented in
+    /// hardware and always read back as 0, so we mask them off at the
+    /// storage layer. Per nesdev "PPU OAM": "the three unimplemented
+    /// bits of each sprite's byte 2 do not exist in the PPU and always
+    /// read back as 0".
     pub fn write(&mut self, addr: u8, val: u8) {
-        self.primary[addr as usize] = val;
+        let masked = if addr & 0x03 == 0x02 { val & 0xE3 } else { val };
+        self.primary[addr as usize] = masked;
     }
 }
 

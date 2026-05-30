@@ -13,8 +13,6 @@ use crate::mapper::MapperKind;
 /// emulator. No rendering/audio/input here — those belong to later
 /// milestones; M3 needs only "run a frame, give me the framebuffer".
 pub struct Nes {
-    // cpu is used in run_frame (Task 3); suppress until then.
-    #[allow(dead_code)]
     cpu: Cpu,
     bus: Bus,
 }
@@ -41,6 +39,22 @@ impl Nes {
     /// Total frames completed since power-on (monotonic).
     pub fn frame_count(&self) -> u64 {
         self.bus.ppu.frames()
+    }
+
+    /// Run the CPU until the PPU completes one frame. Executes whole
+    /// instructions; the boundary is the first instruction that pushes
+    /// the PPU frame counter over.
+    pub fn run_frame(&mut self) {
+        let target = self.bus.ppu.frames() + 1;
+        while self.bus.ppu.frames() < target {
+            self.cpu.step(&mut self.bus);
+        }
+    }
+
+    /// Soft reset: re-run the CPU reset sequence. Does not rebuild the
+    /// cartridge or clear the framebuffer.
+    pub fn reset(&mut self) {
+        self.cpu.reset(&mut self.bus);
     }
 }
 
@@ -78,5 +92,22 @@ mod tests {
     #[test]
     fn from_rom_bytes_rejects_garbage() {
         assert!(Nes::from_rom_bytes(&[0, 1, 2, 3]).is_err());
+    }
+
+    #[test]
+    fn run_frame_advances_frame_count_by_one() {
+        let mut nes = Nes::from_rom_bytes(demo_rom_bytes()).expect("build Nes");
+        let before = nes.frame_count();
+        nes.run_frame();
+        assert_eq!(nes.frame_count(), before + 1);
+    }
+
+    #[test]
+    fn run_frame_is_repeatable() {
+        let mut nes = Nes::from_rom_bytes(demo_rom_bytes()).expect("build Nes");
+        for _ in 0..10 {
+            nes.run_frame();
+        }
+        assert_eq!(nes.frame_count(), 10);
     }
 }

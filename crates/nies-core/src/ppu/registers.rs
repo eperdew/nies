@@ -102,6 +102,21 @@ impl Registers {
         self.mask & 0x01 != 0
     }
 
+    /// PPUSCROLL ($2005) write — two-write sequence controlled by w.
+    /// First write: fine X → x register, coarse X → t bits 0-4. Second
+    /// write: fine Y → t bits 12-14, coarse Y → t bits 5-9.
+    pub fn write_ppuscroll(&mut self, val: u8) {
+        if !self.w {
+            self.x = val & 0b111;
+            self.t = (self.t & !0b0000_0000_0001_1111) | ((val as u16) >> 3);
+        } else {
+            let fine_y = (val as u16 & 0b111) << 12;
+            let coarse_y = ((val as u16) & 0b1111_1000) << 2;
+            self.t = (self.t & !0b0111_0011_1110_0000) | fine_y | coarse_y;
+        }
+        self.w = !self.w;
+    }
+
     /// PPUSTATUS ($2002) read. Returns bits 5-7 from the latched status
     /// or'd with bits 0-4 from the open-bus latch. Side effects: clears
     /// bit 7 (vblank) and the w toggle.
@@ -206,5 +221,24 @@ mod tests {
         r.open_bus = 0x1F;
         let v = r.read_ppustatus();
         assert_eq!(v, 0xE0 | 0x1F);
+    }
+
+    #[test]
+    fn ppuscroll_first_write_sets_fine_x_and_coarse_x_in_t() {
+        let mut r = Registers::new();
+        r.write_ppuscroll(0b1010_1101); // coarse_x = 0b10101, fine_x = 0b101
+        assert_eq!(r.x, 0b101);
+        assert_eq!(r.t & 0b0000_0000_0001_1111, 0b10101);
+        assert!(r.w);
+    }
+
+    #[test]
+    fn ppuscroll_second_write_sets_fine_y_and_coarse_y_in_t() {
+        let mut r = Registers::new();
+        r.w = true;
+        r.write_ppuscroll(0b1010_1011); // coarse_y = 0b10101, fine_y = 0b011
+        assert_eq!((r.t >> 12) & 0b111, 0b011);
+        assert_eq!((r.t >> 5) & 0b1_1111, 0b10101);
+        assert!(!r.w);
     }
 }

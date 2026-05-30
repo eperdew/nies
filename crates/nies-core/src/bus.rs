@@ -111,12 +111,7 @@ impl Bus {
     pub(crate) fn read_no_tick(&mut self, addr: u16) -> u8 {
         match addr {
             0x0000..=0x1FFF => self.ram[(addr & 0x07FF) as usize],
-            0x2000..=0x3FFF => {
-                // PPU register space: $2000-$2007 mirrored every 8 bytes.
-                // Real PPU read effects (PPUSTATUS clear, PPUDATA buffer)
-                // land in M2; M1 returns open-bus.
-                self.open_bus
-            }
+            0x2000..=0x3FFF => self.ppu.cpu_read(&mut self.mapper, addr),
             0x4000..=0x4015 => self.open_bus, // APU registers: M5
             0x4016 => 0,                      // Controller 1: M4 will fill in
             0x4017 => 0,                      // Controller 2 / APU frame counter: M4/M5
@@ -138,10 +133,7 @@ impl Bus {
         self.open_bus = val;
         match addr {
             0x0000..=0x1FFF => self.ram[(addr & 0x07FF) as usize] = val,
-            0x2000..=0x3FFF => {
-                // PPU register write: M2.
-                let _ = val;
-            }
+            0x2000..=0x3FFF => self.ppu.cpu_write(&mut self.mapper, addr, val),
             0x4000..=0x4013 | 0x4015 => {
                 // APU register write: M5.
                 let _ = val;

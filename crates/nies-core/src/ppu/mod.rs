@@ -40,6 +40,10 @@ pub struct Ppu {
     /// Internal: previous sample of the NMI line, for edge detection.
     /// `nmi_line = (PPUCTRL bit 7) AND (PPUSTATUS bit 7)`.
     nmi_line_prev: bool,
+    /// Internal: set when PPUSTATUS is read at the dot before vblank
+    /// raise (scanline 241 dot 0). Blocks the dot-1 vblank set for the
+    /// rest of the frame; cleared at scanline 261 dot 1.
+    vblank_suppress: bool,
 }
 
 impl Default for Ppu {
@@ -53,6 +57,7 @@ impl Default for Ppu {
             framebuffer: [0; 256 * 240],
             nmi_pending_take: false,
             nmi_line_prev: false,
+            vblank_suppress: false,
         }
     }
 }
@@ -70,8 +75,15 @@ impl Ppu {
 
         if self.state.dot == 1 {
             match self.state.scanline {
-                241 => self.regs.status |= 0x80,
-                261 => self.regs.status &= 0x1F, // clear vblank, sprite-0 hit, overflow
+                241 => {
+                    if !self.vblank_suppress {
+                        self.regs.status |= 0x80;
+                    }
+                }
+                261 => {
+                    self.regs.status &= 0x1F; // clear vblank, sprite-0 hit, overflow
+                    self.vblank_suppress = false;
+                }
                 _ => {}
             }
         }
@@ -101,7 +113,14 @@ impl Ppu {
     pub fn cpu_read(&mut self, mapper: &mut MapperKind, addr: u16) -> u8 {
         match addr & 0x7 {
             0 | 1 | 3 | 5 | 6 => self.regs.open_bus, // write-only registers
-            2 => self.regs.read_ppustatus(),
+            2 => {
+                if self.state.scanline == 241 && self.state.dot == 0 {
+                    self.vblank_suppress = true;
+                }
+                let v = self.regs.read_ppustatus();
+                self.update_nmi_line(); // reading clears bit 7, which can drop the line
+                v
+            }
             4 => self.oam.read(self.regs.oamaddr),
             7 => {
                 let mirroring = mapper.mirroring();
@@ -314,6 +333,29 @@ mod tests {
         assert!(!ppu.take_nmi());
         ppu.cpu_write(&mut mapper, 0x2000, 0x80);
         assert!(ppu.take_nmi());
+    }
+
+    #[test]
+    fn ppustatus_read_at_241_dot_0_suppresses_vblank_this_frame() {
+        let mut ppu = Ppu::new();
+        let mut mapper = fake_mapper();
+        while !(ppu.state.scanline == 241 && ppu.state.dot == 0) {
+            ppu.step(&mut mapper);
+        }
+        let _ = ppu.cpu_read(&mut mapper, 0x2002);
+        ppu.step(&mut mapper);
+        assert_eq!(ppu.regs.status & 0x80, 0);
+    }
+
+    #[test]
+    fn ppustatus_read_at_241_dot_2_does_not_suppress() {
+        let mut ppu = Ppu::new();
+        let mut mapper = fake_mapper();
+        while !(ppu.state.scanline == 241 && ppu.state.dot == 2) {
+            ppu.step(&mut mapper);
+        }
+        let v = ppu.cpu_read(&mut mapper, 0x2002);
+        assert_eq!(v & 0x80, 0x80);
     }
 
     #[test]

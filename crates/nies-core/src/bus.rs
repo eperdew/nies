@@ -142,7 +142,36 @@ impl Bus {
     /// Write a byte to the CPU bus. Ticks the system one CPU cycle.
     pub fn write(&mut self, addr: u16, val: u8) {
         self.tick();
-        self.write_no_tick(addr, val);
+        if addr == 0x4014 {
+            self.do_oamdma(val);
+        } else {
+            self.write_no_tick(addr, val);
+        }
+    }
+
+    /// OAMDMA at $4014: copy 256 bytes from CPU page `page << 8` into OAM via
+    /// the PPU's $2004 path (so OAMADDR auto-increment is honored). The
+    /// triggering $4014 write itself costs the 1 cycle already ticked by
+    /// `Bus::write`; this routine adds 0 or 1 alignment cycles (depending
+    /// on parity), followed by 256 pairs of (no-tick read, tick, ppu write,
+    /// tick) — 512 cycles of copy. Total: 513 (even-aligned trigger) or
+    /// 514 (odd-aligned trigger) CPU cycles.
+    fn do_oamdma(&mut self, page: u8) {
+        self.open_bus = page;
+        // `self.cycle` is already (trigger_cycle + 1) because Bus::write
+        // called tick(). If trigger_cycle was odd → self.cycle is even →
+        // 1 alignment tick. If trigger_cycle was even → self.cycle is odd
+        // → 0 alignment ticks.
+        if self.cycle.is_multiple_of(2) {
+            self.tick();
+        }
+        let page_base = (page as u16) << 8;
+        for i in 0..256u16 {
+            let byte = self.read_no_tick(page_base + i);
+            self.tick();
+            self.ppu.cpu_write(&mut self.mapper, 0x2004, byte);
+            self.tick();
+        }
     }
 
     /// Internal: write the data bus and update the address-decoder side
@@ -158,8 +187,9 @@ impl Bus {
                 let _ = val;
             }
             0x4014 => {
-                // OAMDMA: M2/M3 will implement the 256-byte transfer.
-                let _ = val;
+                // OAMDMA: the real transfer happens in `Bus::write` via
+                // `do_oamdma`. No-tick callers (the debugger's force-write
+                // path) skip the DMA entirely.
             }
             0x4016 => {
                 self.controllers[0].write_strobe(val);
@@ -317,6 +347,28 @@ mod tests {
         let apu_cycles_before = bus.apu.cycles;
         let _ = bus.read(0x0000);
         assert_eq!(bus.apu.cycles, apu_cycles_before + 1);
+    }
+
+    #[test]
+    fn oamdma_copies_256_bytes_from_page_to_oam() {
+        let mut bus = fake_bus();
+        // Seed RAM page $02 ($0200-$02FF) with 0..255.
+        for i in 0..256u16 {
+            bus.write_no_tick(0x0200 + i, i as u8);
+        }
+        let cycles_before = bus.cycle;
+        bus.write(0x4014, 0x02);
+        let cycles_after = bus.cycle;
+        let dma_cycles = cycles_after - cycles_before;
+        assert!(
+            dma_cycles == 513 || dma_cycles == 514,
+            "expected 513 or 514 cycles, got {dma_cycles}"
+        );
+        // OAM should now hold 0..255.
+        for i in 0..256u16 {
+            let idx = i as u8;
+            assert_eq!(bus.ppu.oam.read(idx), idx, "oam[{idx}] mismatch");
+        }
     }
 
     #[test]

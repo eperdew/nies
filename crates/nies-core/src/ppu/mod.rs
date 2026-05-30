@@ -3,12 +3,13 @@
 //! Per-dot state machine called from `Bus::tick` 3 times per CPU cycle.
 //! Module layout per the M2 design spec §2:
 //! - state.rs: dot/scanline counters, frame parity
-//! - registers.rs (Task 4+): PPUCTRL/MASK/STATUS/etc. + Loopy v/t/x/w
-//! - vram.rs (Task 10): 2KB nametable RAM + mirroring
-//! - oam.rs (Task 11): 256B primary OAM + 32B secondary OAM
-//! - palette.rs (Task 12): 32-byte palette RAM with $3F1x mirrors
-//! - background.rs (Task 26+): 8-cycle fetch pipeline
-//! - sprite.rs (Task 39+): sprite eval, fetch, sprite-0 hit
+//! - registers.rs: PPUCTRL/MASK/STATUS/OAMADDR/OAMDATA/PPUSCROLL/PPUADDR/PPUDATA
+//!   + Loopy internal v/t/x/w registers
+//! - vram.rs: 2KB nametable RAM + mirroring
+//! - oam.rs: 256B primary OAM + 32B secondary OAM
+//! - palette.rs: 32-byte palette RAM with $3F1x mirrors
+//! - background.rs: shifters + latches for the 8-cycle fetch pipeline
+//! - sprite.rs: per-sprite shifter slots populated at dot 320
 
 pub mod background;
 pub mod oam;
@@ -150,7 +151,11 @@ impl Ppu {
     /// apply horizontal/vertical flip, and load the per-slot shifters.
     /// Slots beyond `sprites.count` get zeroed pattern data.
     fn fetch_sprite_patterns(&mut self, mapper: &mut MapperKind) {
-        let next_scanline = self.state.scanline as i16;
+        // Called at dot 320 of scanline N to prepare shifters for scanline N+1.
+        // OAM Y is "scanline displayed minus 1," so a sprite at OAM Y appears
+        // first on scanline Y+1. The row index for display on scanline N+1
+        // simplifies to `(N+1) - (Y+1) = N - Y`, hence using current scanline.
+        let current_scanline = self.state.scanline as i16;
         let sprite_height: i16 = if self.regs.sprite_size_8x16() { 16 } else { 8 };
 
         for slot in 0..8 {
@@ -160,7 +165,7 @@ impl Ppu {
             let attr = self.oam.secondary[base + 2];
             let x = self.oam.secondary[base + 3];
 
-            let mut row = next_scanline - y;
+            let mut row = current_scanline - y;
             if attr & 0x80 != 0 {
                 row = sprite_height - 1 - row;
             }
@@ -202,11 +207,16 @@ impl Ppu {
         }
     }
 
-    /// Walk primary OAM at dot 256, find up to 8 sprites whose Y satisfies
-    /// `scanline - Y` in `0..sprite_height`. Copy them into secondary OAM
-    /// in primary-OAM order. Sets sprites.count and sprites.sprite_0_in_range.
+    /// Walk primary OAM at dot 256 of scanline N, selecting sprites for
+    /// scanline N+1's render. Copy up to 8 in-range sprites into secondary
+    /// OAM in primary-OAM order. Sets sprites.count and sprites.sprite_0_in_range.
+    ///
+    /// OAM Y is "scanline displayed minus 1," so a sprite at OAM Y appears
+    /// first on scanline Y+1. The in-range check for display on scanline N+1
+    /// simplifies to `0 <= (N+1) - (Y+1) < height` → `0 <= N - Y < height`,
+    /// hence using current scanline directly.
     fn evaluate_sprites_for_next_scanline(&mut self) {
-        let next_scanline = self.state.scanline as i16;
+        let current_scanline = self.state.scanline as i16;
         let sprite_height: i16 = if self.regs.sprite_size_8x16() { 16 } else { 8 };
 
         self.sprites.count = 0;
@@ -218,7 +228,7 @@ impl Ppu {
         for i in 0..64usize {
             let base = i * 4;
             let y = self.oam.primary[base] as i16;
-            let row = next_scanline - y;
+            let row = current_scanline - y;
             if (0..sprite_height).contains(&row) {
                 if self.sprites.count < 8 {
                     let dst = (self.sprites.count as usize) * 4;
@@ -548,6 +558,12 @@ impl Ppu {
 
     pub fn frame_parity(&self) -> bool {
         self.state.frame_parity
+    }
+
+    /// Total frames completed since power-on. Increments on each wrap of
+    /// scanline 261 → 0.
+    pub fn frames(&self) -> u64 {
+        self.state.frames
     }
 
     /// Side-effect-free PPU register read for the debugger.

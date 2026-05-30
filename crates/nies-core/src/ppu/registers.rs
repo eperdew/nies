@@ -131,6 +131,30 @@ impl Registers {
         self.w = !self.w;
     }
 
+    /// PPUDATA ($2007) read with a closure-supplied VRAM bus. Used both
+    /// by `Ppu::cpu_read` (provides a real bus closure) and by unit tests.
+    /// The address is `v & 0x3FFF` (PPU bus is 14 bits).
+    pub fn read_ppudata_with<F: FnMut(u16) -> u8>(&mut self, mut bus_read: F) -> u8 {
+        let addr = self.v & 0x3FFF;
+        let val = if addr < 0x3F00 {
+            let prev = self.read_buffer;
+            self.read_buffer = bus_read(addr);
+            prev
+        } else {
+            self.read_buffer = bus_read(addr - 0x1000);
+            bus_read(addr)
+        };
+        self.v = (self.v.wrapping_add(self.vram_increment())) & 0x7FFF;
+        val
+    }
+
+    /// PPUDATA ($2007) write with a closure-supplied VRAM bus.
+    pub fn write_ppudata_with<F: FnMut(u16, u8)>(&mut self, val: u8, mut bus_write: F) {
+        let addr = self.v & 0x3FFF;
+        bus_write(addr, val);
+        self.v = (self.v.wrapping_add(self.vram_increment())) & 0x7FFF;
+    }
+
     /// PPUSTATUS ($2002) read. Returns bits 5-7 from the latched status
     /// or'd with bits 0-4 from the open-bus latch. Side effects: clears
     /// bit 7 (vblank) and the w toggle.
@@ -277,5 +301,35 @@ mod tests {
         assert_eq!(r.t, 0x2A55);
         assert_eq!(r.v, 0x2A55);
         assert!(!r.w);
+    }
+
+    #[test]
+    fn ppudata_read_below_3f00_is_buffered() {
+        let mut r = Registers::new();
+        r.v = 0x2000;
+        r.read_buffer = 0x42;
+        let v_first = r.read_ppudata_with(|_addr| 0x99);
+        assert_eq!(v_first, 0x42);
+        assert_eq!(r.read_buffer, 0x99);
+        assert_eq!(r.v, 0x2001);
+    }
+
+    #[test]
+    fn ppudata_read_at_palette_is_immediate_and_buffer_holds_mirror() {
+        let mut r = Registers::new();
+        r.v = 0x3F00;
+        r.read_buffer = 0x42;
+        let v = r.read_ppudata_with(|addr| if addr == 0x3F00 { 0x33 } else { 0x77 });
+        assert_eq!(v, 0x33);
+        assert_eq!(r.read_buffer, 0x77);
+    }
+
+    #[test]
+    fn ppudata_increment_is_32_when_ppuctrl_bit2_set() {
+        let mut r = Registers::new();
+        r.write_ppuctrl(0b0000_0100);
+        r.v = 0x2000;
+        r.read_ppudata_with(|_| 0);
+        assert_eq!(r.v, 0x2020);
     }
 }

@@ -97,6 +97,15 @@ impl Ppu {
         }
     }
 
+    fn increment_coarse_x(&mut self) {
+        if (self.regs.v & 0x001F) == 31 {
+            self.regs.v &= !0x001F;
+            self.regs.v ^= 0x0400;
+        } else {
+            self.regs.v += 1;
+        }
+    }
+
     fn at_bits_for_tile(&self) -> (bool, bool) {
         let coarse_x_hi = (self.regs.v >> 1) & 1; // bit 1 of coarse X
         let coarse_y_hi = (self.regs.v >> 6) & 1; // bit 1 of coarse Y
@@ -137,7 +146,7 @@ impl Ppu {
                     self.bg.at_latch_lo = al;
                     self.bg.at_latch_hi = ah;
                     self.bg.reload_shifters();
-                    // Coarse-X increment lands in Task 27.
+                    self.increment_coarse_x();
                 }
                 _ => {}
             }
@@ -444,5 +453,22 @@ mod tests {
         // Second read returns 0x55 (buffer from the prior read).
         let second = ppu.cpu_read(&mut mapper, 0x2007);
         assert_eq!(second, 0x55);
+    }
+
+    #[test]
+    fn coarse_x_increment_basic() {
+        let mut ppu = Ppu::new();
+        ppu.regs.v = 0x2000;
+        ppu.increment_coarse_x();
+        assert_eq!(ppu.regs.v, 0x2001);
+    }
+
+    #[test]
+    fn coarse_x_wraps_and_toggles_nametable_bit_10() {
+        let mut ppu = Ppu::new();
+        ppu.regs.v = 0x201F;
+        ppu.increment_coarse_x();
+        assert_eq!(ppu.regs.v & 0x001F, 0);
+        assert_eq!(ppu.regs.v & 0x0400, 0x0400);
     }
 }

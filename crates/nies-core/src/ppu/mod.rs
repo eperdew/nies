@@ -93,6 +93,8 @@ impl Ppu {
     fn ppu_bus_read(&mut self, mapper: &mut MapperKind, addr: u16) -> u8 {
         let mirroring = mapper.mirroring();
         if addr < 0x2000 {
+            let level = (addr >> 12) & 1 != 0;
+            mapper.notify_a12(level);
             mapper.ppu_read(addr)
         } else if addr < 0x3F00 {
             self.vram.read(addr, mirroring)
@@ -173,8 +175,13 @@ impl Ppu {
                 pt + ((tile as u16) << 4) + row as u16
             };
 
+            let level_lo = (pat_addr_lo >> 12) & 1 != 0;
+            mapper.notify_a12(level_lo);
             let mut pat_lo = mapper.ppu_read(pat_addr_lo);
-            let mut pat_hi = mapper.ppu_read(pat_addr_lo + 8);
+            let pat_addr_hi = pat_addr_lo + 8;
+            let level_hi = (pat_addr_hi >> 12) & 1 != 0;
+            mapper.notify_a12(level_hi);
+            let mut pat_hi = mapper.ppu_read(pat_addr_hi);
 
             if attr & 0x40 != 0 {
                 pat_lo = pat_lo.reverse_bits();

@@ -65,6 +65,11 @@ impl Cpu {
     /// Execute one CPU instruction. Handles pending NMI/IRQ at the
     /// instruction boundary before fetching the next opcode.
     pub fn step<B: crate::bus::BusLike>(&mut self, bus: &mut B) {
+        // Drain any PPU NMI edge raised since the last instruction boundary.
+        if bus.take_pending_nmi() {
+            self.nmi_pending = true;
+        }
+
         if self.jammed {
             // KIL/JAM/HLT halts the CPU until reset; just keep ticking
             // the bus so PPU/APU continue running.

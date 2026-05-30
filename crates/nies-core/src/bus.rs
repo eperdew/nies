@@ -23,6 +23,9 @@ pub struct Bus {
     /// Used as the read result for unmapped addresses (a real-hardware
     /// quirk that some test ROMs depend on).
     pub open_bus: u8,
+    /// Pending NMI edge latched from the PPU. Drained by the CPU via
+    /// `take_pending_nmi()` at the next instruction boundary.
+    pub pending_nmi: bool,
 }
 
 impl Bus {
@@ -42,6 +45,7 @@ impl Bus {
             controllers: [Controller::new(), Controller::new()],
             cycle: 0,
             open_bus: 0,
+            pending_nmi: false,
         }
     }
 
@@ -68,6 +72,9 @@ impl Bus {
         // 3 PPU dots per CPU cycle (NTSC).
         for _ in 0..3 {
             self.ppu.step(&mut self.mapper);
+            if self.ppu.take_nmi() {
+                self.pending_nmi = true;
+            }
         }
         // 1 APU step per CPU cycle.
         self.apu.step(&mut self.mapper);
@@ -88,10 +95,22 @@ impl Bus {
         for _ in 0..cycles {
             for _ in 0..3 {
                 self.ppu.step(&mut self.mapper);
+                if self.ppu.take_nmi() {
+                    self.pending_nmi = true;
+                }
             }
             self.apu.step(&mut self.mapper);
             self.cycle = self.cycle.wrapping_add(1);
         }
+    }
+
+    /// Drain the bus-level pending NMI latch. Called by the CPU at the
+    /// next instruction boundary to learn that the PPU has raised an
+    /// NMI edge since the last poll.
+    pub fn take_pending_nmi(&mut self) -> bool {
+        let v = self.pending_nmi;
+        self.pending_nmi = false;
+        v
     }
 
     /// Read a byte from the CPU bus. Ticks the system one CPU cycle.
@@ -183,6 +202,12 @@ pub trait BusLike {
     fn mapper_irq_pending(&self) -> bool {
         false
     }
+    /// Drain any pending NMI edge raised by the PPU since the last poll.
+    /// Production: forwards to `Bus::take_pending_nmi`. Tests: always
+    /// false (SingleStepTests/FlatBus has no PPU).
+    fn take_pending_nmi(&mut self) -> bool {
+        false
+    }
 }
 
 impl BusLike for Bus {
@@ -195,6 +220,9 @@ impl BusLike for Bus {
     fn mapper_irq_pending(&self) -> bool {
         use crate::mapper::MapperImpl;
         self.mapper.irq_pending()
+    }
+    fn take_pending_nmi(&mut self) -> bool {
+        Bus::take_pending_nmi(self)
     }
 }
 

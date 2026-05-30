@@ -134,7 +134,10 @@ impl Ppu {
     pub fn cpu_write(&mut self, mapper: &mut MapperKind, addr: u16, val: u8) {
         self.regs.open_bus = val;
         match addr & 0x7 {
-            0 => self.regs.write_ppuctrl(val),
+            0 => {
+                self.regs.write_ppuctrl(val);
+                self.update_nmi_line();
+            }
             1 => self.regs.write_ppumask(val),
             2 => {} // PPUSTATUS is read-only
             3 => self.regs.oamaddr = val,
@@ -299,6 +302,18 @@ mod tests {
         }
         assert!(ppu.take_nmi());
         assert!(!ppu.take_nmi());
+    }
+
+    #[test]
+    fn enabling_nmi_while_vblank_set_fires_immediate_nmi() {
+        let mut ppu = Ppu::new();
+        let mut mapper = fake_mapper();
+        ppu.regs.status = 0x80;
+        ppu.regs.ctrl = 0x00;
+        ppu.nmi_line_prev = false;
+        assert!(!ppu.take_nmi());
+        ppu.cpu_write(&mut mapper, 0x2000, 0x80);
+        assert!(ppu.take_nmi());
     }
 
     #[test]

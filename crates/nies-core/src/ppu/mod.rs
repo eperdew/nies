@@ -144,6 +144,57 @@ impl Ppu {
         (bits & 1 != 0, bits & 2 != 0)
     }
 
+    /// Fetch pattern lo/hi for each sprite slot from CHR via the mapper,
+    /// apply horizontal/vertical flip, and load the per-slot shifters.
+    /// Slots beyond `sprites.count` get zeroed pattern data.
+    fn fetch_sprite_patterns(&mut self, mapper: &mut MapperKind) {
+        let next_scanline = self.state.scanline as i16;
+        let sprite_height: i16 = if self.regs.sprite_size_8x16() { 16 } else { 8 };
+
+        for slot in 0..8 {
+            let base = slot * 4;
+            let y = self.oam.secondary[base] as i16;
+            let tile = self.oam.secondary[base + 1];
+            let attr = self.oam.secondary[base + 2];
+            let x = self.oam.secondary[base + 3];
+
+            let mut row = next_scanline - y;
+            if attr & 0x80 != 0 {
+                row = sprite_height - 1 - row;
+            }
+            row = row.clamp(0, sprite_height - 1);
+
+            let pat_addr_lo: u16 = if self.regs.sprite_size_8x16() {
+                let pt = (tile as u16 & 1) * 0x1000;
+                let tile_index = (tile as u16 & 0xFE) + (row >> 3) as u16;
+                pt + (tile_index << 4) + (row & 7) as u16
+            } else {
+                let pt = self.regs.sprite_pattern_table_base();
+                pt + ((tile as u16) << 4) + row as u16
+            };
+
+            let mut pat_lo = mapper.ppu_read(pat_addr_lo);
+            let mut pat_hi = mapper.ppu_read(pat_addr_lo + 8);
+
+            if attr & 0x40 != 0 {
+                pat_lo = pat_lo.reverse_bits();
+                pat_hi = pat_hi.reverse_bits();
+            }
+
+            if (slot as u8) >= self.sprites.count {
+                pat_lo = 0;
+                pat_hi = 0;
+            }
+
+            self.sprites.shifters[slot] = sprite::SpriteSlot {
+                pat_lo,
+                pat_hi,
+                attr,
+                x,
+            };
+        }
+    }
+
     /// Walk primary OAM at dot 256, find up to 8 sprites whose Y satisfies
     /// `scanline - Y` in `0..sprite_height`. Copy them into secondary OAM
     /// in primary-OAM order. Sets sprites.count and sprites.sprite_0_in_range.
@@ -269,6 +320,10 @@ impl Ppu {
 
         if rendering && scanline < 240 && dot == 256 {
             self.evaluate_sprites_for_next_scanline();
+        }
+
+        if rendering && (scanline < 240 || scanline == 261) && dot == 320 {
+            self.fetch_sprite_patterns(mapper);
         }
 
         if rendering && visible_or_pre && dot == 257 {

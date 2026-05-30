@@ -106,6 +106,14 @@ impl Ppu {
         }
     }
 
+    fn copy_horizontal_t_to_v(&mut self) {
+        self.regs.v = (self.regs.v & !0x041F) | (self.regs.t & 0x041F);
+    }
+
+    fn copy_vertical_t_to_v(&mut self) {
+        self.regs.v = (self.regs.v & !0x7BE0) | (self.regs.t & 0x7BE0);
+    }
+
     fn increment_y(&mut self) {
         if (self.regs.v & 0x7000) != 0x7000 {
             self.regs.v += 0x1000;
@@ -172,6 +180,13 @@ impl Ppu {
 
         if rendering && visible_or_pre && dot == 256 {
             self.increment_y();
+        }
+
+        if rendering && visible_or_pre && dot == 257 {
+            self.copy_horizontal_t_to_v();
+        }
+        if rendering && scanline == 261 && (280..=304).contains(&dot) {
+            self.copy_vertical_t_to_v();
         }
 
         self.state.advance_dot_with_rendering(rendering);
@@ -522,5 +537,26 @@ mod tests {
         ppu.increment_y();
         assert_eq!((ppu.regs.v >> 5) & 0x1F, 0);
         assert_eq!(ppu.regs.v & 0x0800, 0);
+    }
+
+    #[test]
+    #[allow(clippy::unusual_byte_groupings)]
+    fn horizontal_copy_at_dot_257() {
+        let mut ppu = Ppu::new();
+        ppu.regs.t = 0b111_11_11111_10101;
+        ppu.regs.v = 0;
+        ppu.copy_horizontal_t_to_v();
+        // bit 10 (horizontal NT select) | coarse_x bits 0-4
+        assert_eq!(ppu.regs.v & 0x041F, 0x0400 | 0b10101);
+    }
+
+    #[test]
+    #[allow(clippy::unusual_byte_groupings)]
+    fn vertical_copy_at_pre_render() {
+        let mut ppu = Ppu::new();
+        ppu.regs.t = 0b111_11_11111_10101;
+        ppu.regs.v = 0;
+        ppu.copy_vertical_t_to_v();
+        assert_eq!(ppu.regs.v & 0x7BE0, 0b111_10_11111_00000);
     }
 }

@@ -337,6 +337,14 @@ impl Ppu {
         }
     }
 
+    pub fn frame(&self) -> &[u8; 256 * 240] {
+        &self.framebuffer
+    }
+
+    pub fn frame_parity(&self) -> bool {
+        self.state.frame_parity
+    }
+
     /// Side-effect-free PPU register read for the debugger.
     pub fn cpu_peek(&self, _mapper: &MapperKind, addr: u16) -> u8 {
         match addr & 0x7 {

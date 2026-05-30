@@ -387,9 +387,53 @@ fn blargg_ppu_vbl_nmi_10_even_odd_timing() {
 // scanline 239 bottom-row exclusion, 8x16 mode, and three cycle-precise
 // timing tests).
 
+/// Runner for blargg's sprite_hit_tests_2005.10.05 suite. These ROMs do
+/// NOT use the $6000 status protocol — they display results on screen
+/// and beep. They store the result in zero-page $F8:
+/// - `$F8 == 1` → all sub-tests passed
+/// - any other value → failure code of the failing sub-test (see the
+///   suite's readme.txt for code → meaning)
+///
+/// Every ROM ends in a `JMP <self>` infinite loop ("done trap") at one
+/// of several addresses depending on the ROM. We detect this trap by
+/// checking whether the byte at PC is `$4C` (JMP absolute) and the
+/// operand equals PC — i.e., a self-jump.
+fn assert_sprite_hit_rom_passes(path: &str, max_cycles: u64) {
+    let bytes = std::fs::read(path).expect("read rom");
+    let cart = Cartridge::from_bytes(&bytes).expect("parse rom");
+    let mapper = MapperKind::from_cartridge(&cart).expect("build mapper");
+    let mut bus = Bus::new(mapper);
+    let mut cpu = Cpu::new();
+    cpu.reset(&mut bus);
+
+    let start = bus.cycle;
+    while bus.cycle - start < max_cycles {
+        cpu.step(&mut bus);
+        // Detect `JMP $self` infinite loop at PC. JMP abs opcode = $4C.
+        if bus.peek(cpu.pc) == 0x4C {
+            let lo = bus.peek(cpu.pc.wrapping_add(1)) as u16;
+            let hi = bus.peek(cpu.pc.wrapping_add(2)) as u16;
+            let target = (hi << 8) | lo;
+            if target == cpu.pc {
+                let f8 = bus.peek(0xF8);
+                if f8 == 1 {
+                    return; // success
+                }
+                panic!(
+                    "{path}: sprite_hit ROM failed with $F8 = {f8:#04x} (see readme.txt for code meaning)"
+                );
+            }
+        }
+    }
+    panic!(
+        "{path}: sprite_hit ROM timed out (cycle budget {max_cycles} exhausted, last $F8 = {:#04x})",
+        bus.peek(0xF8)
+    );
+}
+
 #[test]
 fn blargg_sprite_hit_01_basics() {
-    assert_rom_passes(
+    assert_sprite_hit_rom_passes(
         &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/01.basics.nes"),
         60_000_000,
     );
@@ -397,7 +441,7 @@ fn blargg_sprite_hit_01_basics() {
 
 #[test]
 fn blargg_sprite_hit_02_alignment() {
-    assert_rom_passes(
+    assert_sprite_hit_rom_passes(
         &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/02.alignment.nes"),
         60_000_000,
     );
@@ -405,7 +449,7 @@ fn blargg_sprite_hit_02_alignment() {
 
 #[test]
 fn blargg_sprite_hit_03_corners() {
-    assert_rom_passes(
+    assert_sprite_hit_rom_passes(
         &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/03.corners.nes"),
         60_000_000,
     );
@@ -413,7 +457,7 @@ fn blargg_sprite_hit_03_corners() {
 
 #[test]
 fn blargg_sprite_hit_04_flip() {
-    assert_rom_passes(
+    assert_sprite_hit_rom_passes(
         &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/04.flip.nes"),
         60_000_000,
     );
@@ -421,7 +465,7 @@ fn blargg_sprite_hit_04_flip() {
 
 #[test]
 fn blargg_sprite_hit_05_left_clip() {
-    assert_rom_passes(
+    assert_sprite_hit_rom_passes(
         &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/05.left_clip.nes"),
         60_000_000,
     );
@@ -429,7 +473,7 @@ fn blargg_sprite_hit_05_left_clip() {
 
 #[test]
 fn blargg_sprite_hit_06_right_edge() {
-    assert_rom_passes(
+    assert_sprite_hit_rom_passes(
         &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/06.right_edge.nes"),
         60_000_000,
     );
@@ -437,7 +481,7 @@ fn blargg_sprite_hit_06_right_edge() {
 
 #[test]
 fn blargg_sprite_hit_07_screen_bottom() {
-    assert_rom_passes(
+    assert_sprite_hit_rom_passes(
         &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/07.screen_bottom.nes"),
         60_000_000,
     );
@@ -445,7 +489,7 @@ fn blargg_sprite_hit_07_screen_bottom() {
 
 #[test]
 fn blargg_sprite_hit_08_double_height() {
-    assert_rom_passes(
+    assert_sprite_hit_rom_passes(
         &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/08.double_height.nes"),
         60_000_000,
     );
@@ -453,7 +497,7 @@ fn blargg_sprite_hit_08_double_height() {
 
 #[test]
 fn blargg_sprite_hit_09_timing_basics() {
-    assert_rom_passes(
+    assert_sprite_hit_rom_passes(
         &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/09.timing_basics.nes"),
         60_000_000,
     );
@@ -461,7 +505,7 @@ fn blargg_sprite_hit_09_timing_basics() {
 
 #[test]
 fn blargg_sprite_hit_10_timing_order() {
-    assert_rom_passes(
+    assert_sprite_hit_rom_passes(
         &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/10.timing_order.nes"),
         60_000_000,
     );
@@ -469,7 +513,7 @@ fn blargg_sprite_hit_10_timing_order() {
 
 #[test]
 fn blargg_sprite_hit_11_edge_timing() {
-    assert_rom_passes(
+    assert_sprite_hit_rom_passes(
         &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/11.edge_timing.nes"),
         60_000_000,
     );

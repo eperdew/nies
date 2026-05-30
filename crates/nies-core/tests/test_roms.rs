@@ -274,3 +274,88 @@ fn blargg_instr_timing_2_branch_timing() {
 // non-NROM mappers; their integration tests are deferred to M11+ when
 // those mappers land. The ROMs are vendored so they can be wired up
 // without re-vendoring at that time.
+
+// M2 PPU vblank/NMI timing suite. Each sub-test is a separate NROM
+// build of blargg's ppu_vbl_nmi tests, exercising a specific timing
+// edge case (vblank set/clear time, NMI control, suppression races,
+// odd-frame timing).
+
+#[test]
+fn blargg_ppu_vbl_nmi_01_basics() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/01-vbl_basics.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_ppu_vbl_nmi_02_vbl_set_time() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/02-vbl_set_time.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_ppu_vbl_nmi_03_vbl_clear_time() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/03-vbl_clear_time.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_ppu_vbl_nmi_04_nmi_control() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/04-nmi_control.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_ppu_vbl_nmi_05_nmi_timing() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/05-nmi_timing.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_ppu_vbl_nmi_06_suppression() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/06-suppression.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_ppu_vbl_nmi_07_nmi_on_timing() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/07-nmi_on_timing.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_ppu_vbl_nmi_08_nmi_off_timing() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/08-nmi_off_timing.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_ppu_vbl_nmi_09_even_odd_frames() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/09-even_odd_frames.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_ppu_vbl_nmi_10_even_odd_timing() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/10-even_odd_timing.nes"),
+        60_000_000,
+    );
+}

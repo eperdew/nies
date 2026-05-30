@@ -12,16 +12,19 @@
 
 pub mod registers;
 pub mod state;
+pub mod vram;
 
 use crate::mapper::MapperKind;
 use registers::Registers;
 use serde::{Deserialize, Serialize};
 use state::PpuState;
+use vram::Vram;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Ppu {
     pub state: PpuState,
     pub regs: Registers,
+    pub vram: Vram,
 }
 
 impl Ppu {

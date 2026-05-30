@@ -33,6 +33,10 @@ impl NesRenderer {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
+        // The bind group below references this view; wgpu keeps the
+        // underlying GPU resource alive via its own refcount, so the local
+        // can drop at end of `new()` while `bind_group` (stored in Self)
+        // stays valid.
         let index_view = index_tex.create_view(&wgpu::TextureViewDescriptor::default());
 
         let pal = fbx_smooth();

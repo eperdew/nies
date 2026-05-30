@@ -31,8 +31,8 @@ fn run_and_hash(path: &str, n_frames: u64) -> u64 {
     let mut cpu = Cpu::new();
     cpu.reset(&mut bus);
 
-    let target_frame = bus.ppu.state.frames + n_frames;
-    while bus.ppu.state.frames < target_frame {
+    let target_frame = bus.ppu.frames() + n_frames;
+    while bus.ppu.frames() < target_frame {
         cpu.step(&mut bus);
     }
 

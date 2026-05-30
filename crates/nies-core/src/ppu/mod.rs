@@ -10,6 +10,7 @@
 //! - background.rs (Task 26+): 8-cycle fetch pipeline
 //! - sprite.rs (Task 39+): sprite eval, fetch, sprite-0 hit
 
+pub mod background;
 pub mod oam;
 pub mod palette;
 pub mod registers;
@@ -17,6 +18,7 @@ pub mod state;
 pub mod vram;
 
 use crate::mapper::{MapperImpl, MapperKind};
+use background::Background;
 use oam::Oam;
 use palette::Palette;
 use registers::Registers;
@@ -32,6 +34,7 @@ pub struct Ppu {
     pub vram: Vram,
     pub oam: Oam,
     pub palette: Palette,
+    pub bg: Background,
     #[serde(with = "BigArray")]
     pub framebuffer: [u8; 256 * 240],
     /// Internal: latched on a rising edge of the NMI line; drained by
@@ -54,6 +57,7 @@ impl Default for Ppu {
             vram: Vram::default(),
             oam: Oam::default(),
             palette: Palette::default(),
+            bg: Background::default(),
             framebuffer: [0; 256 * 240],
             nmi_pending_take: false,
             nmi_line_prev: false,

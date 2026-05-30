@@ -53,6 +53,56 @@ Sources:
 | `blargg/instr_timing/2-branch_timing.nes` | blargg via christopherpow `instr_timing/rom_singles/` | Public domain | `0afaa393f375844ab98834c1ecba7fa6d8c44880c8b6e738936d0f04a84c8538` |
 | `blargg/cpu_dummy_reads.nes` | blargg via christopherpow `cpu_dummy_reads/cpu_dummy_reads.nes` | Public domain | `db4f91b80c5fbc123e7dcb420fb7fea9b8a18613edf4de7f3d1e3ed95e3117c9` |
 
+## M2 Test ROMs
+
+Vendored at the M2 milestone (PPU implementation). All public-domain
+test programs by Shay Green ("blargg"), mirrored at
+https://github.com/christopherpow/nes-test-roms.
+
+### blargg ppu_vbl_nmi (10 sub-tests)
+
+| ROM | Source | License | SHA-256 |
+|---|---|---|---|
+| `blargg/ppu_vbl_nmi/01-vbl_basics.nes` | blargg via christopherpow `ppu_vbl_nmi/rom_singles/01-vbl_basics.nes` | Public domain | `06aea5af4edab4e3141c939cd5ac9936f8758203b25dcaf84ae1a09db49e024a` |
+| `blargg/ppu_vbl_nmi/02-vbl_set_time.nes` | blargg via christopherpow `ppu_vbl_nmi/rom_singles/02-vbl_set_time.nes` | Public domain | `dd98856130078844e3aa4bd95a9be8ab501ea84c089f1d8ad49a1b20af4b3a80` |
+| `blargg/ppu_vbl_nmi/03-vbl_clear_time.nes` | blargg via christopherpow `ppu_vbl_nmi/rom_singles/03-vbl_clear_time.nes` | Public domain | `787fdaa4dd6c5b6df5f4308fb6d55b57e2c2f69bd5ecdf8ad5c69735db4fcc72` |
+| `blargg/ppu_vbl_nmi/04-nmi_control.nes` | blargg via christopherpow `ppu_vbl_nmi/rom_singles/04-nmi_control.nes` | Public domain | `84722c75b896c47c8642f83220230fe14f0a31e55e26ecb83c400e6a26d91b32` |
+| `blargg/ppu_vbl_nmi/05-nmi_timing.nes` | blargg via christopherpow `ppu_vbl_nmi/rom_singles/05-nmi_timing.nes` | Public domain | `72e515d689d7404ae5779b8c9c4c7b3563a755a94bd44864516f1b03df044482` |
+| `blargg/ppu_vbl_nmi/06-suppression.nes` | blargg via christopherpow `ppu_vbl_nmi/rom_singles/06-suppression.nes` | Public domain | `811dd5997bbf48c2e5687ab06845f17ea76b2be472786596c334137582cc72aa` |
+| `blargg/ppu_vbl_nmi/07-nmi_on_timing.nes` | blargg via christopherpow `ppu_vbl_nmi/rom_singles/07-nmi_on_timing.nes` | Public domain | `1ed154363660b5775b112ae63ce9bb4e400ebde2afef4d0ac12fc433efda3702` |
+| `blargg/ppu_vbl_nmi/08-nmi_off_timing.nes` | blargg via christopherpow `ppu_vbl_nmi/rom_singles/08-nmi_off_timing.nes` | Public domain | `1d2a4093091c8e58a7f99d6a3531bbc6346b52cfc59bcb17ca04c1f2376cf2fc` |
+| `blargg/ppu_vbl_nmi/09-even_odd_frames.nes` | blargg via christopherpow `ppu_vbl_nmi/rom_singles/09-even_odd_frames.nes` | Public domain | `1ac04283021ddd9294cc74ee709c55e20a350dc4815c15a8a93b3654837e858d` |
+| `blargg/ppu_vbl_nmi/10-even_odd_timing.nes` | blargg via christopherpow `ppu_vbl_nmi/rom_singles/10-even_odd_timing.nes` | Public domain | `7217d2d172ce11ad45c4da40c2f22201cf0eb758bc2cd8dd39d2cf0a7d4ca83e` |
+
+### blargg sprite_hit_tests_2005.10.05 (11 sub-tests)
+
+| ROM | Source | License | SHA-256 |
+|---|---|---|---|
+| `blargg/sprite_hit_tests_2005.10.05/01.basics.nes` | blargg via christopherpow `sprite_hit_tests_2005.10.05/01.basics.nes` | Public domain | `51819e8e502bd88fe3b7244198a074dbeef2e848f66c587be04b04f1f0d4bb52` |
+| `blargg/sprite_hit_tests_2005.10.05/02.alignment.nes` | blargg via christopherpow `sprite_hit_tests_2005.10.05/02.alignment.nes` | Public domain | `125bbb3ce1e67370f1f4559c2ad3221e52a3e98880b9789400292b5f3a8b39e6` |
+| `blargg/sprite_hit_tests_2005.10.05/03.corners.nes` | blargg via christopherpow `sprite_hit_tests_2005.10.05/03.corners.nes` | Public domain | `9dd57776bc6267fe6183c5521d67cbe3fccc6662ae545eb2c419949bf39644d3` |
+| `blargg/sprite_hit_tests_2005.10.05/04.flip.nes` | blargg via christopherpow `sprite_hit_tests_2005.10.05/04.flip.nes` | Public domain | `5f7142bddb51b7577f93fa22f9f668efebbeea00346d7255089e1863acb9d46a` |
+| `blargg/sprite_hit_tests_2005.10.05/05.left_clip.nes` | blargg via christopherpow `sprite_hit_tests_2005.10.05/05.left_clip.nes` | Public domain | `69b329658c17b953f149c2f0de77eb272089df22c815bd2fd3d6f43206791c13` |
+| `blargg/sprite_hit_tests_2005.10.05/06.right_edge.nes` | blargg via christopherpow `sprite_hit_tests_2005.10.05/06.right_edge.nes` | Public domain | `8e6653fcb869e06873e29e5e4423122ea72ba0bf38f3ba9e39f471420db759a4` |
+| `blargg/sprite_hit_tests_2005.10.05/07.screen_bottom.nes` | blargg via christopherpow `sprite_hit_tests_2005.10.05/07.screen_bottom.nes` | Public domain | `05849956f80267838c5b6556310266b794078a4300841cbb36339fd141905a0b` |
+| `blargg/sprite_hit_tests_2005.10.05/08.double_height.nes` | blargg via christopherpow `sprite_hit_tests_2005.10.05/08.double_height.nes` | Public domain | `127fd966b6b32d6d88a53c5f59d7e938827783c9ad056091f119be1c4ab21c71` |
+| `blargg/sprite_hit_tests_2005.10.05/09.timing_basics.nes` | blargg via christopherpow `sprite_hit_tests_2005.10.05/09.timing_basics.nes` | Public domain | `311698c717e50150edd0b5fd0016c41de686463205c20efb5630d6adb90859fd` |
+| `blargg/sprite_hit_tests_2005.10.05/10.timing_order.nes` | blargg via christopherpow `sprite_hit_tests_2005.10.05/10.timing_order.nes` | Public domain | `0f36bc07bfe51c416e3cc1a5231053572aa6b15aa60e6d2fd0568be49b6dc2e9` |
+| `blargg/sprite_hit_tests_2005.10.05/11.edge_timing.nes` | blargg via christopherpow `sprite_hit_tests_2005.10.05/11.edge_timing.nes` | Public domain | `5a7c121f6e76617be88a0a7035c0e402293be5c685c95b97190a8d70835736ab` |
+
+### blargg OAM tests
+
+| ROM | Source | License | SHA-256 |
+|---|---|---|---|
+| `blargg/oam_read.nes` | blargg via christopherpow `oam_read/oam_read.nes` | Public domain | `f298973dabeb61ca35007445f7a615f77e87703c958c870986af83b1aabde926` |
+| `blargg/oam_stress.nes` | blargg via christopherpow `oam_stress/oam_stress.nes` | Public domain | `95882d72a7acabe928fd277e3b3e0372f21ef3d41e36d7d8fb17fc017a356f70` |
+
+### nmi_sync
+
+| ROM | Source | License | SHA-256 |
+|---|---|---|---|
+| `nmi_sync/demo_ntsc.nes` | blargg via christopherpow `nmi_sync/demo_ntsc.nes` | Redistribution permitted by author | `6f630cf1b37fea5c34d62800855a5384e8bacd578aba3131752f1fb777b4638a` |
+
 ## Third-party crates
 
 Third-party Rust crate licenses are surfaced via `cargo about`

@@ -4,4 +4,6 @@
 //! are added in later milestones.
 
 pub mod palette;
+pub mod renderer;
 pub mod scaling;
+pub use renderer::NesRenderer;

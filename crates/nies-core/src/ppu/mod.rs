@@ -144,6 +144,39 @@ impl Ppu {
         (bits & 1 != 0, bits & 2 != 0)
     }
 
+    /// Walk primary OAM at dot 256, find up to 8 sprites whose Y satisfies
+    /// `scanline - Y` in `0..sprite_height`. Copy them into secondary OAM
+    /// in primary-OAM order. Sets sprites.count and sprites.sprite_0_in_range.
+    fn evaluate_sprites_for_next_scanline(&mut self) {
+        let next_scanline = self.state.scanline as i16;
+        let sprite_height: i16 = if self.regs.sprite_size_8x16() { 16 } else { 8 };
+
+        self.sprites.count = 0;
+        self.sprites.sprite_0_in_range = false;
+        for slot in 0..8 {
+            self.oam.secondary[slot * 4..slot * 4 + 4].fill(0xFF);
+        }
+
+        for i in 0..64usize {
+            let base = i * 4;
+            let y = self.oam.primary[base] as i16;
+            let row = next_scanline - y;
+            if (0..sprite_height).contains(&row) {
+                if self.sprites.count < 8 {
+                    let dst = (self.sprites.count as usize) * 4;
+                    self.oam.secondary[dst..dst + 4]
+                        .copy_from_slice(&self.oam.primary[base..base + 4]);
+                    if i == 0 {
+                        self.sprites.sprite_0_in_range = true;
+                    }
+                    self.sprites.count += 1;
+                } else {
+                    // Overflow handled in Task 39.
+                }
+            }
+        }
+    }
+
     /// Emit one background pixel into the framebuffer at (scanline, dot-1).
     fn emit_bg_pixel(&mut self) {
         let scanline = self.state.scanline as usize;
@@ -231,6 +264,10 @@ impl Ppu {
 
         if rendering && visible_or_pre && dot == 256 {
             self.increment_y();
+        }
+
+        if rendering && scanline < 240 && dot == 256 {
+            self.evaluate_sprites_for_next_scanline();
         }
 
         if rendering && visible_or_pre && dot == 257 {
@@ -640,5 +677,26 @@ mod tests {
         ppu.regs.v = 0;
         ppu.copy_vertical_t_to_v();
         assert_eq!(ppu.regs.v & 0x7BE0, 0b111_10_11111_00000);
+    }
+
+    #[test]
+    fn sprite_eval_finds_in_range_sprite() {
+        let mut ppu = Ppu::new();
+        let mut mapper = fake_mapper();
+        ppu.regs.write_ppumask(0x18); // bg + sprite on
+        // Place sprite 0 at Y=10 (appears on scanlines 11..18 for 8x8).
+        ppu.oam.primary[0] = 10;
+        ppu.oam.primary[1] = 0x42;
+        ppu.oam.primary[2] = 0x00;
+        ppu.oam.primary[3] = 50;
+        // Step until scanline 12, dot 256.
+        while !(ppu.state.scanline == 12 && ppu.state.dot == 256) {
+            ppu.step(&mut mapper);
+        }
+        ppu.step(&mut mapper); // dot 256 → sprite eval runs
+        assert_eq!(ppu.sprites.count, 1);
+        assert!(ppu.sprites.sprite_0_in_range);
+        assert_eq!(ppu.oam.secondary[0], 10);
+        assert_eq!(ppu.oam.secondary[1], 0x42);
     }
 }

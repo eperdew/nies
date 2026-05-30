@@ -14,6 +14,7 @@ pub mod background;
 pub mod oam;
 pub mod palette;
 pub mod registers;
+pub mod sprite;
 pub mod state;
 pub mod vram;
 
@@ -24,6 +25,7 @@ use palette::Palette;
 use registers::Registers;
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
+use sprite::Sprites;
 use state::PpuState;
 use vram::Vram;
 
@@ -35,6 +37,7 @@ pub struct Ppu {
     pub oam: Oam,
     pub palette: Palette,
     pub bg: Background,
+    pub sprites: Sprites,
     #[serde(with = "BigArray")]
     pub framebuffer: [u8; 256 * 240],
     /// Internal: latched on a rising edge of the NMI line; drained by
@@ -58,6 +61,7 @@ impl Default for Ppu {
             oam: Oam::default(),
             palette: Palette::default(),
             bg: Background::default(),
+            sprites: Sprites::default(),
             framebuffer: [0; 256 * 240],
             nmi_pending_take: false,
             nmi_line_prev: false,
@@ -180,6 +184,16 @@ impl Ppu {
         let dot = self.state.dot;
         let visible_or_pre = scanline < 240 || scanline == 261;
 
+        // Secondary OAM clear on visible scanlines, dots 1-64 (writes 0xFF
+        // byte by byte on even dots). OAMDATA reads return 0xFF during
+        // this window — handled in cpu_read for $2004.
+        if rendering && scanline < 240 && (1..=64).contains(&dot) && dot.is_multiple_of(2) {
+            let idx = ((dot / 2) - 1) as usize;
+            if idx < 32 {
+                self.oam.secondary[idx] = 0xFF;
+            }
+        }
+
         // Background pipeline runs during dots 1-256 and 321-336.
         if rendering && visible_or_pre && ((1..=256).contains(&dot) || (321..=336).contains(&dot)) {
             self.bg.shift();
@@ -276,7 +290,17 @@ impl Ppu {
                 self.update_nmi_line(); // reading clears bit 7, which can drop the line
                 v
             }
-            4 => self.oam.read(self.regs.oamaddr),
+            4 => {
+                let scanline = self.state.scanline;
+                let dot = self.state.dot;
+                let in_clear =
+                    self.regs.rendering_enabled() && scanline < 240 && (1..=64).contains(&dot);
+                if in_clear {
+                    0xFF
+                } else {
+                    self.oam.read(self.regs.oamaddr)
+                }
+            }
             7 => {
                 let mirroring = mapper.mirroring();
                 let addr_v = self.regs.v & 0x3FFF;

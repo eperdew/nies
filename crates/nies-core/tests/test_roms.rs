@@ -529,3 +529,20 @@ fn blargg_sprite_hit_11_edge_timing() {
         60_000_000,
     );
 }
+
+// M2 PPU OAM behavior suite. Both ROMs use the standard $6000 status protocol.
+// `oam_read.nes` exercises OAMDATA read behavior (including the $FF-during-clear
+// window on dots 1-64 of visible scanlines) and OAMADDR auto-increment on
+// $2004 writes. `oam_stress.nes` is a longer suite that hammers OAMADDR
+// corruption during rendering and various OAMDATA edge cases.
+
+#[test]
+fn blargg_oam_read() {
+    assert_rom_passes(&format!("{ROOT}/blargg/oam_read.nes"), 60_000_000);
+}
+
+#[test]
+fn blargg_oam_stress() {
+    // oam_stress is the longer test — give it more cycles.
+    assert_rom_passes(&format!("{ROOT}/blargg/oam_stress.nes"), 120_000_000);
+}

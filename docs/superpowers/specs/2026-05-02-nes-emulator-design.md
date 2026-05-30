@@ -706,6 +706,12 @@ Emulator framebuffer on screen at 60 Hz, native and WASM.
 
 **Gate:** `nmi_sync/demo_ntsc.nes` framebuffer matches golden hash on Mac and WASM. WASM build size + load time recorded for regression.
 
+> **Status (M3 complete):** `Nes` driver added; shared `NesRenderer` (R8Uint
+> index texture → FBX Smooth palette-LUT WGSL shader → integer-scaled blit)
+> in `nies-ui`; both binaries render. Golden hash of the demo_ntsc index
+> framebuffer pinned and asserted natively and via `wasm-bindgen-test`. See
+> [`2026-05-30-m3-frontend-rendering-design.md`](2026-05-30-m3-frontend-rendering-design.md).
+
 ### M4 — Input
 
 Two NES controllers driven from keyboard/gamepad; deterministic.
@@ -803,7 +809,8 @@ Ship-quality v1.
 Non-blocking items to revisit later:
 
 - **License for `nies`**: not chosen yet. Affects M15 (conditional breakpoints) and any future dependency choices that have copyleft-vs-permissive implications.
-- **Default palette**: pick between FBX Smooth and Nostalgia during M3.
+- **Default palette**: **FBX Smooth**, chosen at M3 (vendored 64-entry
+  `smooth_fbx.pal`). Nostalgia (FBX) remains a future selectable option (M10).
 - **Audio sample rate**: default to 48 kHz, but config allows others. Validate behavior at 44.1 kHz and 96 kHz when M5 is done.
 - **Trunk vs alternative WASM bundlers**: Trunk chosen; alternative `wasm-pack` + custom HTML is a fallback if Trunk pinning becomes painful.
 - **Sub-instruction (tier 3) accuracy**: explicitly out of scope for v1; revisit if/when the project ambition extends to "compete with Mesen."

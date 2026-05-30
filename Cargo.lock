@@ -1072,8 +1072,10 @@ dependencies = [
 name = "nies-ui"
 version = "0.0.0"
 dependencies = [
+ "bytemuck",
  "log",
  "nies-core",
+ "wgpu",
 ]
 
 [[package]]

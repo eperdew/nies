@@ -106,6 +106,24 @@ impl Ppu {
         }
     }
 
+    fn increment_y(&mut self) {
+        if (self.regs.v & 0x7000) != 0x7000 {
+            self.regs.v += 0x1000;
+        } else {
+            self.regs.v &= !0x7000;
+            let mut y = (self.regs.v & 0x03E0) >> 5;
+            if y == 29 {
+                y = 0;
+                self.regs.v ^= 0x0800;
+            } else if y == 31 {
+                y = 0;
+            } else {
+                y += 1;
+            }
+            self.regs.v = (self.regs.v & !0x03E0) | (y << 5);
+        }
+    }
+
     fn at_bits_for_tile(&self) -> (bool, bool) {
         let coarse_x_hi = (self.regs.v >> 1) & 1; // bit 1 of coarse X
         let coarse_y_hi = (self.regs.v >> 6) & 1; // bit 1 of coarse Y
@@ -150,6 +168,10 @@ impl Ppu {
                 }
                 _ => {}
             }
+        }
+
+        if rendering && visible_or_pre && dot == 256 {
+            self.increment_y();
         }
 
         self.state.advance_dot_with_rendering(rendering);
@@ -470,5 +492,35 @@ mod tests {
         ppu.increment_coarse_x();
         assert_eq!(ppu.regs.v & 0x001F, 0);
         assert_eq!(ppu.regs.v & 0x0400, 0x0400);
+    }
+
+    #[test]
+    #[allow(clippy::unusual_byte_groupings)]
+    fn y_increment_fine_y_wraps_and_increments_coarse_y() {
+        let mut ppu = Ppu::new();
+        ppu.regs.v = 0b111_00_00000_00000; // fine_y=7, coarse_y=0
+        ppu.increment_y();
+        assert_eq!((ppu.regs.v >> 12) & 7, 0);
+        assert_eq!((ppu.regs.v >> 5) & 0x1F, 1);
+    }
+
+    #[test]
+    #[allow(clippy::unusual_byte_groupings)]
+    fn y_increment_coarse_y_29_to_0_toggles_v_bit_11() {
+        let mut ppu = Ppu::new();
+        ppu.regs.v = 0b111_00_11101_00000; // fine_y=7, coarse_y=29
+        ppu.increment_y();
+        assert_eq!((ppu.regs.v >> 5) & 0x1F, 0);
+        assert_eq!(ppu.regs.v & 0x0800, 0x0800);
+    }
+
+    #[test]
+    #[allow(clippy::unusual_byte_groupings)]
+    fn y_increment_from_coarse_y_31_wraps_without_toggle() {
+        let mut ppu = Ppu::new();
+        ppu.regs.v = 0b111_00_11111_00000; // fine_y=7, coarse_y=31
+        ppu.increment_y();
+        assert_eq!((ppu.regs.v >> 5) & 0x1F, 0);
+        assert_eq!(ppu.regs.v & 0x0800, 0);
     }
 }

@@ -140,6 +140,39 @@ impl Ppu {
         (bits & 1 != 0, bits & 2 != 0)
     }
 
+    /// Emit one background pixel into the framebuffer at (scanline, dot-1).
+    fn emit_bg_pixel(&mut self) {
+        let scanline = self.state.scanline as usize;
+        let dot = self.state.dot as usize;
+        if scanline >= 240 || !(1..=256).contains(&dot) {
+            return;
+        }
+
+        let show_bg = self.regs.show_bg();
+        let clip_left = !self.regs.show_bg_left8() && dot <= 8;
+
+        let palette_addr = if !show_bg || clip_left {
+            0x3F00
+        } else {
+            let bit = 15 - self.regs.x as u32;
+            let pat_lo = ((self.bg.shift_pat_lo >> bit) & 1) as u8;
+            let pat_hi = ((self.bg.shift_pat_hi >> bit) & 1) as u8;
+            let at_lo = (self.bg.shift_at_lo >> (7 - self.regs.x)) & 1;
+            let at_hi = (self.bg.shift_at_hi >> (7 - self.regs.x)) & 1;
+            let pat_bits = (pat_hi << 1) | pat_lo;
+            if pat_bits == 0 {
+                0x3F00
+            } else {
+                let at_bits = (at_hi << 1) | at_lo;
+                0x3F00 + ((at_bits as u16) << 2) + pat_bits as u16
+            }
+        };
+        let color = self
+            .palette
+            .read_masked(palette_addr, self.regs.greyscale());
+        self.framebuffer[scanline * 256 + (dot - 1)] = color;
+    }
+
     /// Advance the PPU by one dot.
     pub fn step(&mut self, mapper: &mut MapperKind) {
         let rendering = self.regs.rendering_enabled();
@@ -176,6 +209,10 @@ impl Ppu {
                 }
                 _ => {}
             }
+        }
+
+        if rendering && scanline < 240 && (1..=256).contains(&dot) {
+            self.emit_bg_pixel();
         }
 
         if rendering && visible_or_pre && dot == 256 {
@@ -548,6 +585,19 @@ mod tests {
         ppu.copy_horizontal_t_to_v();
         // bit 10 (horizontal NT select) | coarse_x bits 0-4
         assert_eq!(ppu.regs.v & 0x041F, 0x0400 | 0b10101);
+    }
+
+    #[test]
+    fn rendering_a_blank_scene_writes_universal_bg_color_to_framebuffer() {
+        let mut ppu = Ppu::new();
+        let mut mapper = fake_mapper();
+        ppu.regs.write_ppumask(0x08); // bg on
+        for _ in 0..(341 * 262) {
+            ppu.step(&mut mapper);
+        }
+        let universal = ppu.palette.read(0x3F00);
+        assert_eq!(ppu.framebuffer[120 * 256 + 100], universal);
+        assert_eq!(ppu.framebuffer[100 * 256 + 200], universal);
     }
 
     #[test]

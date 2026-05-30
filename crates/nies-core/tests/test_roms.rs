@@ -380,3 +380,97 @@ fn blargg_ppu_vbl_nmi_10_even_odd_timing() {
         60_000_000,
     );
 }
+
+// M2 PPU sprite-zero-hit suite. Each sub-test exercises a specific
+// edge of the sprite-0 hit detection (basic firing, pixel alignment,
+// corner pixels, flip flags, left-column clipping, x=255 suppression,
+// scanline 239 bottom-row exclusion, 8x16 mode, and three cycle-precise
+// timing tests).
+
+#[test]
+fn blargg_sprite_hit_01_basics() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/01.basics.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_02_alignment() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/02.alignment.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_03_corners() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/03.corners.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_04_flip() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/04.flip.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_05_left_clip() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/05.left_clip.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_06_right_edge() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/06.right_edge.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_07_screen_bottom() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/07.screen_bottom.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_08_double_height() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/08.double_height.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_09_timing_basics() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/09.timing_basics.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_10_timing_order() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/10.timing_order.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_11_edge_timing() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/11.edge_timing.nes"),
+        60_000_000,
+    );
+}

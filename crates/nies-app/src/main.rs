@@ -21,7 +21,7 @@ struct GpuState {
 }
 
 impl GpuState {
-    async fn new(window: Arc<Window>) -> Self {
+    async fn new(window: Arc<Window>, rom_bytes: &[u8]) -> Self {
         let instance =
             wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
         let surface = instance
@@ -56,8 +56,10 @@ impl GpuState {
         surface.configure(&device, &config);
 
         let renderer = nies_ui::NesRenderer::new(&device, &queue, config.format);
-        let nes =
-            nies_core::Nes::from_rom_bytes(nies_core::demo_rom_bytes()).expect("demo ROM builds");
+        let nes = nies_core::Nes::from_rom_bytes(rom_bytes).unwrap_or_else(|e| {
+            log::error!("ROM failed to parse ({e:?}); falling back to embedded demo");
+            nies_core::Nes::from_rom_bytes(nies_core::demo_rom_bytes()).expect("demo ROM builds")
+        });
 
         Self {
             surface,
@@ -111,10 +113,20 @@ impl GpuState {
     }
 }
 
-#[derive(Default)]
 struct App {
     window: Option<Arc<Window>>,
     gpu: Option<GpuState>,
+    rom_bytes: Vec<u8>,
+}
+
+impl App {
+    fn new(rom_bytes: Vec<u8>) -> Self {
+        Self {
+            window: None,
+            gpu: None,
+            rom_bytes,
+        }
+    }
 }
 
 impl ApplicationHandler for App {
@@ -128,7 +140,7 @@ impl ApplicationHandler for App {
                 )
                 .expect("create window"),
         );
-        let gpu = pollster::block_on(GpuState::new(window.clone()));
+        let gpu = pollster::block_on(GpuState::new(window.clone(), &self.rom_bytes));
         self.window = Some(window);
         self.gpu = Some(gpu);
     }
@@ -166,7 +178,19 @@ impl ApplicationHandler for App {
 fn main() {
     env_logger::init();
     log::info!("nies-app starting");
+
+    let rom_bytes: Vec<u8> = match std::env::args().nth(1) {
+        Some(path) => match std::fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                log::error!("failed to read ROM '{path}': {e}; using embedded demo");
+                nies_core::demo_rom_bytes().to_vec()
+            }
+        },
+        None => nies_core::demo_rom_bytes().to_vec(),
+    };
+
     let event_loop = EventLoop::new().expect("create event loop");
-    let mut app = App::default();
+    let mut app = App::new(rom_bytes);
     event_loop.run_app(&mut app).expect("run event loop");
 }

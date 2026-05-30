@@ -4,3 +4,4 @@
 //! are added in later milestones.
 
 pub mod palette;
+pub mod scaling;

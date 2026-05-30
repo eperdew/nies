@@ -343,6 +343,12 @@ impl Ppu {
             }
         }
 
+        // Per nesdev: at each visible rendering dot, the order is
+        // (1) output pixel, (2) shift shifters, (3) perform fetch.
+        if rendering && scanline < 240 && (1..=256).contains(&dot) {
+            self.emit_pixel();
+        }
+
         // Background pipeline runs during dots 1-256 and 321-336.
         if rendering && visible_or_pre && ((1..=256).contains(&dot) || (321..=336).contains(&dot)) {
             self.bg.shift();
@@ -372,10 +378,6 @@ impl Ppu {
                 }
                 _ => {}
             }
-        }
-
-        if rendering && scanline < 240 && (1..=256).contains(&dot) {
-            self.emit_pixel();
         }
 
         if rendering && visible_or_pre && dot == 256 {

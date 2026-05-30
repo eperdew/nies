@@ -19,6 +19,15 @@ fn demo_ntsc_framebuffer_is_self_deterministic() {
 /// is asserted under wasm32 in crates/nies-web/tests/determinism_wasm.rs;
 /// keep the two in sync. A change here is a real determinism regression —
 /// render the frame and diff against a reference before touching it.
+///
+/// KNOWN PRE-M5 TIMING: demo_ntsc draws an NMI-synchronized "middle line"
+/// whose position encodes NMI-dispatch precision. Our CPU samples
+/// interrupts at instruction boundaries, not the penultimate cycle (global
+/// spec §7.8, deferred to M5), so the line renders shifted slightly left of
+/// where a cycle-accurate emulator puts it. This is deterministic, so the
+/// hash is stable and valid as a cross-platform gate — but the value will
+/// need re-pinning once M5's per-cycle interrupt polling lands. (Ruled out
+/// the M11 sprite-eval-collapse: demo_ntsc never reads $2004 mid-scanline.)
 const GOLDEN_FB_HASH: u64 = 0xdf3e45e98c8063b5;
 
 #[test]

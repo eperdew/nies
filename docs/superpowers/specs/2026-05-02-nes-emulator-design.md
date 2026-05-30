@@ -651,6 +651,8 @@ The aggregate signal at M1: 256/256 SingleStepTests opcodes pass + 16/16 NROM-co
 
 The aggregate signal at M2: 5/10 `ppu_vbl_nmi` sub-tests pass (01, 02, 03, 04, 09 — covering vblank set/clear time, NMI control, and odd/even frame parity); 8/11 `sprite_hit_tests` pass (01-06, 08, 11 — covering hit basics, alignment, corners, flip, left/right clipping, double-height, and edge timing) plus the remaining M2 gates (OAM, nmi_sync self-determinism). The 8 deferred sub-tests (5 ppu_vbl_nmi + 3 sprite_hit) all amend the M2 design spec §1.3 acceptance gate via this row; no commercial NES game depends on sub-instruction NMI/status sample timing (per blargg's own notes the tests are calibrated against emulator authors, not games).
 
+**M3 observation — `nmi_sync/demo_ntsc.nes` line position.** Once M3 put the framebuffer on screen, `demo_ntsc`'s NMI-synchronized "middle line" renders shifted slightly left of a cycle-accurate emulator's. Root cause confirmed during M3: the same instruction-boundary interrupt sampling above (we service the NMI at the next instruction boundary, up to ~7 cycles late, rather than the penultimate cycle), which deterministically offsets the timing-positioned line. **Not** the M11 sprite-eval/fetch collapse — instrumentation showed `demo_ntsc` performs zero `$2004` reads during the dots 65-256 eval window, so the collapse cannot affect its output. Re-enable cycle-accurate positioning at **M5** (per-cycle interrupt polling); the M3 golden framebuffer hash (`crates/nies-core/tests/ppu_determinism.rs`) encodes the pre-M5 line position and will need re-pinning then.
+
 ## 8. Milestones
 
 ```

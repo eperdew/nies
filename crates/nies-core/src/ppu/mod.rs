@@ -229,36 +229,86 @@ impl Ppu {
         }
     }
 
-    /// Emit one background pixel into the framebuffer at (scanline, dot-1).
-    fn emit_bg_pixel(&mut self) {
+    /// Compute the palette address for the current background pixel,
+    /// honoring leftmost-8 clip and global show_bg. Returns the address
+    /// (always >= 0x3F00). The pattern bits (low 2 of the index relative
+    /// to 0x3F00) are 0 if the pixel should be treated as transparent.
+    fn bg_pixel_palette_addr(&self, dot: usize) -> u16 {
+        if !self.regs.show_bg() || (!self.regs.show_bg_left8() && dot <= 8) {
+            return 0x3F00;
+        }
+        let bit = 15 - self.regs.x as u32;
+        let pat_lo = ((self.bg.shift_pat_lo >> bit) & 1) as u8;
+        let pat_hi = ((self.bg.shift_pat_hi >> bit) & 1) as u8;
+        let at_lo = (self.bg.shift_at_lo >> (7 - self.regs.x)) & 1;
+        let at_hi = (self.bg.shift_at_hi >> (7 - self.regs.x)) & 1;
+        let pat = (pat_hi << 1) | pat_lo;
+        if pat == 0 {
+            return 0x3F00;
+        }
+        let at = (at_hi << 1) | at_lo;
+        0x3F00 + ((at as u16) << 2) + pat as u16
+    }
+
+    /// Compute the highest-priority opaque sprite pixel at this dot.
+    /// Returns (palette_addr, back_priority, was_sprite_0). None if no
+    /// opaque sprite covers this pixel.
+    fn sprite_pixel_palette_addr(&self, dot: usize) -> (Option<u16>, bool, bool) {
+        if !self.regs.show_sprites() || (!self.regs.show_sprites_left8() && dot <= 8) {
+            return (None, false, false);
+        }
+        for slot in 0..(self.sprites.count as usize) {
+            let s = &self.sprites.shifters[slot];
+            let sx = s.x as usize;
+            // Sprite is on this column if dot-1 ∈ [sx, sx+8).
+            let pixel_x = dot - 1;
+            if pixel_x < sx || pixel_x >= sx + 8 {
+                continue;
+            }
+            let bit = 7 - (pixel_x - sx) as u32;
+            let pat_lo = (s.pat_lo >> bit) & 1;
+            let pat_hi = (s.pat_hi >> bit) & 1;
+            let pat = (pat_hi << 1) | pat_lo;
+            if pat == 0 {
+                continue;
+            }
+            let palette = s.attr & 0b11;
+            let addr = 0x3F10 + ((palette as u16) << 2) + pat as u16;
+            let back_priority = s.attr & 0x20 != 0;
+            let was_sprite_0 = slot == 0 && self.sprites.sprite_0_in_range;
+            return (Some(addr), back_priority, was_sprite_0);
+        }
+        (None, false, false)
+    }
+
+    /// Emit one pixel into the framebuffer at (scanline, dot-1), combining
+    /// background and sprites with priority resolution.
+    fn emit_pixel(&mut self) {
         let scanline = self.state.scanline as usize;
         let dot = self.state.dot as usize;
         if scanline >= 240 || !(1..=256).contains(&dot) {
             return;
         }
 
-        let show_bg = self.regs.show_bg();
-        let clip_left = !self.regs.show_bg_left8() && dot <= 8;
+        let bg_addr = self.bg_pixel_palette_addr(dot);
+        let bg_opaque = (bg_addr & 0x03) != 0;
+        let (sprite_addr_opt, sprite_back_priority, _sprite_was_zero) =
+            self.sprite_pixel_palette_addr(dot);
 
-        let palette_addr = if !show_bg || clip_left {
-            0x3F00
-        } else {
-            let bit = 15 - self.regs.x as u32;
-            let pat_lo = ((self.bg.shift_pat_lo >> bit) & 1) as u8;
-            let pat_hi = ((self.bg.shift_pat_hi >> bit) & 1) as u8;
-            let at_lo = (self.bg.shift_at_lo >> (7 - self.regs.x)) & 1;
-            let at_hi = (self.bg.shift_at_hi >> (7 - self.regs.x)) & 1;
-            let pat_bits = (pat_hi << 1) | pat_lo;
-            if pat_bits == 0 {
-                0x3F00
-            } else {
-                let at_bits = (at_hi << 1) | at_lo;
-                0x3F00 + ((at_bits as u16) << 2) + pat_bits as u16
+        let final_addr = match (bg_opaque, sprite_addr_opt) {
+            (false, None) => 0x3F00,
+            (false, Some(a)) => a,
+            (true, None) => bg_addr,
+            (true, Some(a)) => {
+                if sprite_back_priority {
+                    bg_addr
+                } else {
+                    a
+                }
             }
         };
-        let color = self
-            .palette
-            .read_masked(palette_addr, self.regs.greyscale());
+
+        let color = self.palette.read_masked(final_addr, self.regs.greyscale());
         self.framebuffer[scanline * 256 + (dot - 1)] = color;
     }
 
@@ -311,7 +361,7 @@ impl Ppu {
         }
 
         if rendering && scanline < 240 && (1..=256).contains(&dot) {
-            self.emit_bg_pixel();
+            self.emit_pixel();
         }
 
         if rendering && visible_or_pre && dot == 256 {

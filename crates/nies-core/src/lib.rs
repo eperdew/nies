@@ -9,6 +9,7 @@ pub mod cartridge;
 pub mod cpu;
 pub mod input;
 pub mod mapper;
+pub mod nes;
 pub mod ppu;
 pub mod snapshot;
 
@@ -17,6 +18,7 @@ pub use bus::{Bus, BusLike};
 pub use cartridge::{Cartridge, CartridgeError, Mirroring, NesFormat};
 pub use cpu::Cpu;
 pub use mapper::{MapperImpl, MapperKind};
+pub use nes::demo_rom_bytes;
 pub use ppu::Ppu;
 
 #[cfg(test)]

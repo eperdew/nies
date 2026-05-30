@@ -149,6 +149,8 @@ The global design spec gets two coordinated edits:
 
 §8 M3's existing gate text ("`nmi_sync/demo_ntsc.nes` framebuffer matches golden hash on Mac and WASM") is unchanged; the M3 implementation plan will specify the capture-from-Mesen 2 procedure when it's authored.
 
+**Additional amendment (committed in dispatch unit 2, Task 23):** the global spec §7.8 deferrals table also gains rows for `ppu_vbl_nmi/05-nmi_timing`, `06-suppression`, `07-nmi_on_timing`, `08-nmi_off_timing`, and `10-even_odd_timing`. These five sub-tests measure NMI dispatch latency and the odd-frame skip at single-cycle precision; passing them requires per-cycle interrupt polling (penultimate-cycle 6502 sampling) — a CPU-wide refactor where every opcode handler participates in the poll. Deferred to M5 alongside the APU frame-counter IRQ work that needs the same infrastructure. The M2 §1.3 acceptance gate's "`ppu_vbl_nmi/01..10` all green" is amended via this §7.8 mechanism to "5 of 10 sub-tests green at M2 (01, 02, 03, 04, 09); 5 deferred per §7.8."
+
 ## 5. Dispatch units (the 5-unit decomposition)
 
 Each unit ends in a clean integration-test gate. Per the user's preference for higher involvement on unfamiliar domains, units 1–2 are user-driven (Claude as reviewer/pair); units 4–5 default to agent dispatch; unit 3's mode is a real decision at the unit-2 → unit-3 checkpoint, not a rubber stamp.

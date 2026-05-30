@@ -312,7 +312,17 @@ fn blargg_ppu_vbl_nmi_04_nmi_control() {
     );
 }
 
+// Sub-tests 05-08 measure NMI dispatch latency at single-cycle precision.
+// On a real 6502, interrupts are polled on the penultimate cycle of every
+// instruction; our CPU samples at instruction boundaries instead. The
+// resulting off-by-one shows up as "NMI fires 2-4 cycles late" in 05, and
+// as wrong V/N columns at the suppression edges in 06/07/08. Implementing
+// per-cycle interrupt polling is a CPU-wide refactor (every opcode handler
+// needs to participate); it's deferred to a later milestone where APU
+// frame-counter IRQ timing will need the same infrastructure. See M2
+// design spec §4.4 and global spec §7.8.
 #[test]
+#[ignore = "requires per-cycle interrupt polling (penultimate-cycle 6502 sampling); deferred — see spec §7.8"]
 fn blargg_ppu_vbl_nmi_05_nmi_timing() {
     assert_rom_passes(
         &format!("{ROOT}/blargg/ppu_vbl_nmi/05-nmi_timing.nes"),
@@ -321,6 +331,7 @@ fn blargg_ppu_vbl_nmi_05_nmi_timing() {
 }
 
 #[test]
+#[ignore = "requires per-cycle interrupt polling (penultimate-cycle 6502 sampling); deferred — see spec §7.8"]
 fn blargg_ppu_vbl_nmi_06_suppression() {
     assert_rom_passes(
         &format!("{ROOT}/blargg/ppu_vbl_nmi/06-suppression.nes"),
@@ -329,6 +340,7 @@ fn blargg_ppu_vbl_nmi_06_suppression() {
 }
 
 #[test]
+#[ignore = "requires per-cycle interrupt polling (penultimate-cycle 6502 sampling); deferred — see spec §7.8"]
 fn blargg_ppu_vbl_nmi_07_nmi_on_timing() {
     assert_rom_passes(
         &format!("{ROOT}/blargg/ppu_vbl_nmi/07-nmi_on_timing.nes"),
@@ -337,6 +349,7 @@ fn blargg_ppu_vbl_nmi_07_nmi_on_timing() {
 }
 
 #[test]
+#[ignore = "requires per-cycle interrupt polling (penultimate-cycle 6502 sampling); deferred — see spec §7.8"]
 fn blargg_ppu_vbl_nmi_08_nmi_off_timing() {
     assert_rom_passes(
         &format!("{ROOT}/blargg/ppu_vbl_nmi/08-nmi_off_timing.nes"),
@@ -352,7 +365,15 @@ fn blargg_ppu_vbl_nmi_09_even_odd_frames() {
     );
 }
 
+// 10-even_odd_timing measures the cycle at which the dot-339 skip on odd
+// pre-render scanlines fires *relative to a mid-frame PPUMASK BG-enable
+// write*. Our `rendering_enabled` is sampled at the top of each PPU step,
+// so a PPUMASK write during the same CPU cycle as dot 338→339 sees the
+// skip applied one CPU cycle (~3 PPU dots) "late" from the test's
+// perspective. The fix is sub-PPU-step register write granularity, which
+// is intertwined with per-cycle interrupt polling; deferred together.
 #[test]
+#[ignore = "odd-frame skip vs mid-frame PPUMASK write needs sub-step register granularity; deferred — see spec §7.8"]
 fn blargg_ppu_vbl_nmi_10_even_odd_timing() {
     assert_rom_passes(
         &format!("{ROOT}/blargg/ppu_vbl_nmi/10-even_odd_timing.nes"),

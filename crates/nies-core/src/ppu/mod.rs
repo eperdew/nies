@@ -10,11 +10,13 @@
 //! - background.rs (Task 26+): 8-cycle fetch pipeline
 //! - sprite.rs (Task 39+): sprite eval, fetch, sprite-0 hit
 
+pub mod oam;
 pub mod registers;
 pub mod state;
 pub mod vram;
 
 use crate::mapper::MapperKind;
+use oam::Oam;
 use registers::Registers;
 use serde::{Deserialize, Serialize};
 use state::PpuState;
@@ -25,6 +27,7 @@ pub struct Ppu {
     pub state: PpuState,
     pub regs: Registers,
     pub vram: Vram,
+    pub oam: Oam,
 }
 
 impl Ppu {

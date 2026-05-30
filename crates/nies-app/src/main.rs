@@ -5,13 +5,6 @@ use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{Window, WindowId};
 
-const SENTINEL_CLEAR: wgpu::Color = wgpu::Color {
-    r: 0.6,
-    g: 0.05,
-    b: 0.6,
-    a: 1.0,
-};
-
 enum RenderOutcome {
     Presented,
     Reconfigured,
@@ -23,6 +16,8 @@ struct GpuState {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
+    renderer: nies_ui::NesRenderer,
+    nes: nies_core::Nes,
 }
 
 impl GpuState {
@@ -59,11 +54,18 @@ impl GpuState {
             view_formats: vec![],
         };
         surface.configure(&device, &config);
+
+        let renderer = nies_ui::NesRenderer::new(&device, &queue, config.format);
+        let nes =
+            nies_core::Nes::from_rom_bytes(nies_core::demo_rom_bytes()).expect("demo ROM builds");
+
         Self {
             surface,
             device,
             queue,
             config,
+            renderer,
+            nes,
         }
     }
 
@@ -95,27 +97,14 @@ impl GpuState {
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
+
+        self.nes.run_frame();
+        self.renderer.upload_frame(&self.queue, self.nes.frame());
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-        {
-            let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("clear"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(SENTINEL_CLEAR),
-                        store: wgpu::StoreOp::Store,
-                    },
-                    depth_slice: None,
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-        }
+        self.renderer
+            .render(&mut encoder, &view, (self.config.width, self.config.height));
         self.queue.submit(std::iter::once(encoder.finish()));
         frame.present();
         RenderOutcome::Presented

@@ -117,6 +117,20 @@ impl Registers {
         self.w = !self.w;
     }
 
+    /// PPUADDR ($2006) write — two-write sequence controlled by w.
+    /// First write: high 6 bits → t[13:8], t[14] cleared. Second write:
+    /// low 8 bits → t[7:0]; then v ← t.
+    pub fn write_ppuaddr(&mut self, val: u8) {
+        if !self.w {
+            let hi = (val as u16 & 0b0011_1111) << 8;
+            self.t = (self.t & 0x00FF) | hi;
+        } else {
+            self.t = (self.t & 0xFF00) | (val as u16);
+            self.v = self.t;
+        }
+        self.w = !self.w;
+    }
+
     /// PPUSTATUS ($2002) read. Returns bits 5-7 from the latched status
     /// or'd with bits 0-4 from the open-bus latch. Side effects: clears
     /// bit 7 (vblank) and the w toggle.
@@ -239,6 +253,29 @@ mod tests {
         r.write_ppuscroll(0b1010_1011); // coarse_y = 0b10101, fine_y = 0b011
         assert_eq!((r.t >> 12) & 0b111, 0b011);
         assert_eq!((r.t >> 5) & 0b1_1111, 0b10101);
+        assert!(!r.w);
+    }
+
+    #[test]
+    fn ppuaddr_first_write_sets_t_high_and_clears_bit14() {
+        let mut r = Registers::new();
+        r.t = 0xFFFF;
+        r.write_ppuaddr(0b1011_1100);
+        // Byte 0b1011_1100 has low 6 bits 0b11_1100; that goes into t bits 8-13.
+        // (t >> 8) & 0x3F retrieves them. Bit 14 of t is forced 0 by the write.
+        assert_eq!((r.t >> 8) & 0b0011_1111, 0b11_1100);
+        assert_eq!((r.t >> 14) & 1, 0);
+        assert!(r.w);
+    }
+
+    #[test]
+    fn ppuaddr_second_write_sets_t_low_then_copies_t_to_v() {
+        let mut r = Registers::new();
+        r.t = 0x2A00;
+        r.w = true;
+        r.write_ppuaddr(0x55);
+        assert_eq!(r.t, 0x2A55);
+        assert_eq!(r.v, 0x2A55);
         assert!(!r.w);
     }
 }

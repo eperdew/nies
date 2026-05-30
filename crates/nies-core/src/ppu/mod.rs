@@ -841,6 +841,26 @@ mod tests {
     }
 
     #[test]
+    fn ppu_step_calls_notify_a12_during_background_fetch_with_high_pattern_base() {
+        let mut ppu = Ppu::new();
+        let mut mapper = fake_mapper();
+        ppu.regs.write_ppumask(0x08); // bg rendering on
+        ppu.regs.write_ppuctrl(0x10); // bg pattern base = $1000 (A12=1 for bg fetches)
+
+        // Step a full visible scanline.
+        for _ in 0..341 {
+            ppu.step(&mut mapper);
+        }
+
+        let MapperKind::Nrom(nrom) = &mapper;
+        let log = nrom.a12_log.borrow();
+        assert!(
+            log.iter().any(|&level| level),
+            "expected A12=true seen at least once during bg fetch with pattern base $1000"
+        );
+    }
+
+    #[test]
     fn sprite_eval_finds_in_range_sprite() {
         let mut ppu = Ppu::new();
         let mut mapper = fake_mapper();

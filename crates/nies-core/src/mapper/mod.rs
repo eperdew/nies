@@ -102,6 +102,12 @@ impl MapperImpl for MapperKind {
             MapperKind::Nrom(s) => s.mirroring(),
         }
     }
+
+    fn notify_a12(&mut self, level: bool) {
+        match self {
+            MapperKind::Nrom(s) => s.notify_a12(level),
+        }
+    }
 }
 
 #[cfg(test)]

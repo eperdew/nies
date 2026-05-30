@@ -34,6 +34,12 @@ pub struct Ppu {
     pub palette: Palette,
     #[serde(with = "BigArray")]
     pub framebuffer: [u8; 256 * 240],
+    /// Internal: latched on a rising edge of the NMI line; drained by
+    /// `take_nmi()`. Take-on-read edge semantics per design spec §3.1.
+    nmi_pending_take: bool,
+    /// Internal: previous sample of the NMI line, for edge detection.
+    /// `nmi_line = (PPUCTRL bit 7) AND (PPUSTATUS bit 7)`.
+    nmi_line_prev: bool,
 }
 
 impl Default for Ppu {
@@ -45,6 +51,8 @@ impl Default for Ppu {
             oam: Oam::default(),
             palette: Palette::default(),
             framebuffer: [0; 256 * 240],
+            nmi_pending_take: false,
+            nmi_line_prev: false,
         }
     }
 }
@@ -67,6 +75,25 @@ impl Ppu {
                 _ => {}
             }
         }
+        self.update_nmi_line();
+    }
+
+    /// Drain the NMI rising-edge latch. Returns true at most once per
+    /// rising edge of the NMI line.
+    pub fn take_nmi(&mut self) -> bool {
+        let v = self.nmi_pending_take;
+        self.nmi_pending_take = false;
+        v
+    }
+
+    /// Re-sample the NMI line and latch on a rising edge. NMI line is
+    /// `(PPUCTRL bit 7) AND (PPUSTATUS bit 7)`.
+    fn update_nmi_line(&mut self) {
+        let line = self.regs.nmi_enabled() && (self.regs.status & 0x80) != 0;
+        if line && !self.nmi_line_prev {
+            self.nmi_pending_take = true;
+        }
+        self.nmi_line_prev = line;
     }
 
     /// CPU-side register read at $2000-$3FFF. The address is mirrored
@@ -237,6 +264,41 @@ mod tests {
         assert_eq!(ppu.regs.status & 0x80, 0x80);
         ppu.step(&mut mapper);
         assert_eq!(ppu.regs.status & 0x80, 0);
+    }
+
+    #[test]
+    fn take_nmi_fires_on_vblank_when_ctrl_bit7_set() {
+        let mut ppu = Ppu::new();
+        let mut mapper = fake_mapper();
+        ppu.regs.write_ppuctrl(0x80);
+        while !(ppu.state.scanline == 241 && ppu.state.dot == 0) {
+            ppu.step(&mut mapper);
+        }
+        assert!(!ppu.take_nmi());
+        ppu.step(&mut mapper);
+        assert!(ppu.take_nmi());
+    }
+
+    #[test]
+    fn take_nmi_does_not_fire_when_ctrl_bit7_clear() {
+        let mut ppu = Ppu::new();
+        let mut mapper = fake_mapper();
+        while ppu.state.scanline < 242 {
+            ppu.step(&mut mapper);
+        }
+        assert!(!ppu.take_nmi());
+    }
+
+    #[test]
+    fn take_nmi_returns_true_only_once_per_edge() {
+        let mut ppu = Ppu::new();
+        let mut mapper = fake_mapper();
+        ppu.regs.write_ppuctrl(0x80);
+        while !(ppu.state.scanline == 241 && ppu.state.dot == 1) {
+            ppu.step(&mut mapper);
+        }
+        assert!(ppu.take_nmi());
+        assert!(!ppu.take_nmi());
     }
 
     #[test]

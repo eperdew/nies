@@ -71,11 +71,79 @@ impl Ppu {
         Self::default()
     }
 
-    /// Advance the PPU by one dot. M2 unit 1: just advances the counter.
-    /// `_mapper` will be used by later tasks for CHR access and notify_a12.
-    pub fn step(&mut self, _mapper: &mut MapperKind) {
-        let rendering_enabled = self.regs.rendering_enabled();
-        self.state.advance_dot_with_rendering(rendering_enabled);
+    fn nt_addr(&self) -> u16 {
+        0x2000 | (self.regs.v & 0x0FFF)
+    }
+
+    fn at_addr(&self) -> u16 {
+        0x23C0 | (self.regs.v & 0x0C00) | ((self.regs.v >> 4) & 0x38) | ((self.regs.v >> 2) & 0x07)
+    }
+
+    fn pat_addr(&self, hi: bool) -> u16 {
+        let base = self.regs.bg_pattern_table_base();
+        let tile = self.bg.nt_byte as u16;
+        let fine_y = (self.regs.v >> 12) & 7;
+        base + (tile << 4) + fine_y + if hi { 8 } else { 0 }
+    }
+
+    fn ppu_bus_read(&mut self, mapper: &mut MapperKind, addr: u16) -> u8 {
+        let mirroring = mapper.mirroring();
+        if addr < 0x2000 {
+            mapper.ppu_read(addr)
+        } else if addr < 0x3F00 {
+            self.vram.read(addr, mirroring)
+        } else {
+            self.palette.read(addr)
+        }
+    }
+
+    fn at_bits_for_tile(&self) -> (bool, bool) {
+        let coarse_x_hi = (self.regs.v >> 1) & 1; // bit 1 of coarse X
+        let coarse_y_hi = (self.regs.v >> 6) & 1; // bit 1 of coarse Y
+        let shift = ((coarse_y_hi << 1) | coarse_x_hi) * 2;
+        let bits = (self.bg.at_byte >> shift) & 0b11;
+        (bits & 1 != 0, bits & 2 != 0)
+    }
+
+    /// Advance the PPU by one dot.
+    pub fn step(&mut self, mapper: &mut MapperKind) {
+        let rendering = self.regs.rendering_enabled();
+        let scanline = self.state.scanline;
+        let dot = self.state.dot;
+        let visible_or_pre = scanline < 240 || scanline == 261;
+
+        // Background pipeline runs during dots 1-256 and 321-336.
+        if rendering && visible_or_pre && ((1..=256).contains(&dot) || (321..=336).contains(&dot)) {
+            self.bg.shift();
+            match dot % 8 {
+                1 => {
+                    let a = self.nt_addr();
+                    self.bg.nt_byte = self.ppu_bus_read(mapper, a);
+                }
+                3 => {
+                    let a = self.at_addr();
+                    self.bg.at_byte = self.ppu_bus_read(mapper, a);
+                }
+                5 => {
+                    let a = self.pat_addr(false);
+                    self.bg.pat_lo_latch = self.ppu_bus_read(mapper, a);
+                }
+                7 => {
+                    let a = self.pat_addr(true);
+                    self.bg.pat_hi_latch = self.ppu_bus_read(mapper, a);
+                }
+                0 => {
+                    let (al, ah) = self.at_bits_for_tile();
+                    self.bg.at_latch_lo = al;
+                    self.bg.at_latch_hi = ah;
+                    self.bg.reload_shifters();
+                    // Coarse-X increment lands in Task 27.
+                }
+                _ => {}
+            }
+        }
+
+        self.state.advance_dot_with_rendering(rendering);
 
         if self.state.dot == 1 {
             match self.state.scanline {

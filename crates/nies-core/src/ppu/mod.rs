@@ -292,8 +292,22 @@ impl Ppu {
 
         let bg_addr = self.bg_pixel_palette_addr(dot);
         let bg_opaque = (bg_addr & 0x03) != 0;
-        let (sprite_addr_opt, sprite_back_priority, _sprite_was_zero) =
+        let (sprite_addr_opt, sprite_back_priority, sprite_was_zero) =
             self.sprite_pixel_palette_addr(dot);
+
+        // Sprite-0 hit detection.
+        let both_rendering = self.regs.show_bg() && self.regs.show_sprites();
+        let in_left_clip =
+            (!self.regs.show_bg_left8() || !self.regs.show_sprites_left8()) && dot <= 8;
+        if both_rendering
+            && bg_opaque
+            && sprite_addr_opt.is_some()
+            && sprite_was_zero
+            && dot != 256
+            && !in_left_clip
+        {
+            self.regs.status |= 0x40;
+        }
 
         let final_addr = match (bg_opaque, sprite_addr_opt) {
             (false, None) => 0x3F00,

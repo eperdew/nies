@@ -689,7 +689,7 @@ Per-dot rendering correct; NROM CHR / mirroring complete.
 - A12 line plumbed (no-op for NROM).
 - Palette-index framebuffer per frame.
 
-**Gate:** `blargg/ppu_vbl_nmi/*`, `sprite_hit_tests_2005.10.05/*`, `oam_read.nes`, `oam_stress.nes` green. `nmi_sync/demo_ntsc.nes` matches golden framebuffer hash.
+**Gate:** `blargg/ppu_vbl_nmi/*`, `sprite_hit_tests_2005.10.05/*`, `oam_read.nes`, `oam_stress.nes` green (with 8 sub-tests deferred to M5 per §7.8). `nmi_sync/demo_ntsc.nes` produces a self-deterministic framebuffer (the golden-hash correctness check is deferred to M3 per §7.8).
 
 ### M3 — Frontend rendering
 

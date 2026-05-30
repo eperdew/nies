@@ -4,15 +4,12 @@
 //! surface, device, queue, or window — the binary passes those in.
 
 use crate::palette::fbx_smooth;
-use crate::scaling::{NES_H, NES_W};
+use crate::scaling::{NES_H, NES_W, integer_scale};
 use wgpu::util::DeviceExt;
 
 pub struct NesRenderer {
     index_tex: wgpu::Texture,
-    // Used in render(); suppressed until Task 10 adds that method.
-    #[allow(dead_code)]
     pipeline: wgpu::RenderPipeline,
-    #[allow(dead_code)]
     bind_group: wgpu::BindGroup,
 }
 
@@ -135,6 +132,38 @@ impl NesRenderer {
             pipeline,
             bind_group,
         }
+    }
+
+    /// Draw the uploaded frame into `view`, integer-scaled and centered in
+    /// `target` (width, height in physical pixels); letterbox the rest
+    /// black. Caller submits the encoder.
+    pub fn render(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
+        target: (u32, u32),
+    ) {
+        let vp = integer_scale(target.0, target.1);
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("nes-render"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
+                depth_slice: None,
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        pass.set_viewport(vp.x as f32, vp.y as f32, vp.w as f32, vp.h as f32, 0.0, 1.0);
+        pass.set_pipeline(&self.pipeline);
+        pass.set_bind_group(0, &self.bind_group, &[]);
+        pass.draw(0..3, 0..1);
     }
 
     /// Upload one 256×240 palette-index frame into the GPU texture.

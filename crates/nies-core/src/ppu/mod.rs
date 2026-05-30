@@ -743,6 +743,39 @@ mod tests {
     }
 
     #[test]
+    fn cpu_read_2007_palette_is_immediate_and_buffer_holds_mirror() {
+        let mut ppu = Ppu::new();
+        let mut mapper = fake_mapper();
+        // Stage the buffer with a sentinel value via a prior read; then redirect
+        // v to $3F00 (palette). The palette read should return the palette byte
+        // immediately, while the buffer is refilled from the nametable mirror
+        // at v - $1000 = $2F00.
+        ppu.palette.write(0x3F00, 0x33);
+        ppu.vram.write(0x2F00, 0x77, mapper.mirroring());
+        ppu.cpu_write(&mut mapper, 0x2006, 0x3F);
+        ppu.cpu_write(&mut mapper, 0x2006, 0x00);
+        let v = ppu.cpu_read(&mut mapper, 0x2007);
+        assert_eq!(v, 0x33);
+        // Buffer now holds the nametable-mirror value, so the next non-palette
+        // PPUDATA read returns it (after we redirect v back below $3F00).
+        ppu.cpu_write(&mut mapper, 0x2006, 0x20);
+        ppu.cpu_write(&mut mapper, 0x2006, 0x00);
+        let buf_drained = ppu.cpu_read(&mut mapper, 0x2007);
+        assert_eq!(buf_drained, 0x77);
+    }
+
+    #[test]
+    fn cpu_read_2007_increment_is_32_when_ppuctrl_bit2_set() {
+        let mut ppu = Ppu::new();
+        let mut mapper = fake_mapper();
+        ppu.cpu_write(&mut mapper, 0x2000, 0b0000_0100); // PPUCTRL bit 2 → +32
+        ppu.cpu_write(&mut mapper, 0x2006, 0x20);
+        ppu.cpu_write(&mut mapper, 0x2006, 0x00);
+        ppu.cpu_read(&mut mapper, 0x2007);
+        assert_eq!(ppu.regs.v, 0x2020);
+    }
+
+    #[test]
     fn coarse_x_increment_basic() {
         let mut ppu = Ppu::new();
         ppu.regs.v = 0x2000;

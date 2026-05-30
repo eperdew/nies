@@ -171,7 +171,8 @@ impl Ppu {
                     }
                     self.sprites.count += 1;
                 } else {
-                    // Overflow handled in Task 39.
+                    self.regs.status |= 0x20;
+                    break;
                 }
             }
         }
@@ -677,6 +678,23 @@ mod tests {
         ppu.regs.v = 0;
         ppu.copy_vertical_t_to_v();
         assert_eq!(ppu.regs.v & 0x7BE0, 0b111_10_11111_00000);
+    }
+
+    #[test]
+    fn sprite_overflow_flag_set_when_9th_in_range_sprite_found() {
+        let mut ppu = Ppu::new();
+        let mut mapper = fake_mapper();
+        ppu.regs.write_ppumask(0x18);
+        // Place 9 sprites all at Y=10 (all on scanlines 11-18).
+        for i in 0..9 {
+            ppu.oam.primary[i * 4] = 10;
+            ppu.oam.primary[i * 4 + 1] = 0x42;
+        }
+        while !(ppu.state.scanline == 12 && ppu.state.dot == 256) {
+            ppu.step(&mut mapper);
+        }
+        ppu.step(&mut mapper); // run dot-256 eval
+        assert_eq!(ppu.regs.status & 0x20, 0x20);
     }
 
     #[test]

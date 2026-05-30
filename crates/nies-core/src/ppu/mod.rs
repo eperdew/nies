@@ -497,7 +497,22 @@ impl Ppu {
             }
             1 => self.regs.write_ppumask(val),
             2 => {} // PPUSTATUS is read-only
-            3 => self.regs.oamaddr = val,
+            3 => {
+                // OAMADDR write. Hardware bug: during rendering, this copies 8
+                // bytes of OAM (the "row" starting at val & 0xF8) into OAM[0..8].
+                let scanline = self.state.scanline;
+                let dot = self.state.dot;
+                let in_render = self.regs.rendering_enabled()
+                    && (scanline < 240 || scanline == 261)
+                    && (1..=256).contains(&dot);
+                if in_render {
+                    let src = (val & 0xF8) as usize;
+                    for i in 0..8 {
+                        self.oam.primary[i] = self.oam.primary[(src + i) & 0xFF];
+                    }
+                }
+                self.regs.oamaddr = val;
+            }
             4 => {
                 self.oam.write(self.regs.oamaddr, val);
                 self.regs.oamaddr = self.regs.oamaddr.wrapping_add(1);

@@ -59,6 +59,14 @@ impl Ppu {
     pub fn step(&mut self, _mapper: &mut MapperKind) {
         let rendering_enabled = self.regs.rendering_enabled();
         self.state.advance_dot_with_rendering(rendering_enabled);
+
+        if self.state.dot == 1 {
+            match self.state.scanline {
+                241 => self.regs.status |= 0x80,
+                261 => self.regs.status &= 0x1F, // clear vblank, sprite-0 hit, overflow
+                _ => {}
+            }
+        }
     }
 
     /// CPU-side register read at $2000-$3FFF. The address is mirrored
@@ -204,6 +212,31 @@ mod tests {
         ppu.cpu_write(&mut mapper, 0x2004, 0x42);
         assert_eq!(ppu.oam.read(0x10), 0x42);
         assert_eq!(ppu.regs.oamaddr, 0x11);
+    }
+
+    #[test]
+    fn vblank_flag_set_at_scanline_241_dot_1() {
+        let mut ppu = Ppu::new();
+        let mut mapper = fake_mapper();
+        while !(ppu.state.scanline == 241 && ppu.state.dot == 0) {
+            ppu.step(&mut mapper);
+        }
+        assert_eq!(ppu.regs.status & 0x80, 0);
+        ppu.step(&mut mapper);
+        assert_eq!(ppu.regs.status & 0x80, 0x80);
+    }
+
+    #[test]
+    fn vblank_flag_cleared_at_scanline_261_dot_1() {
+        let mut ppu = Ppu::new();
+        let mut mapper = fake_mapper();
+        ppu.regs.status = 0x80;
+        while !(ppu.state.scanline == 261 && ppu.state.dot == 0) {
+            ppu.step(&mut mapper);
+        }
+        assert_eq!(ppu.regs.status & 0x80, 0x80);
+        ppu.step(&mut mapper);
+        assert_eq!(ppu.regs.status & 0x80, 0);
     }
 
     #[test]

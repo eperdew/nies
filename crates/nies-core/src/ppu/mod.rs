@@ -150,6 +150,14 @@ impl Ppu {
     /// Fetch pattern lo/hi for each sprite slot from CHR via the mapper,
     /// apply horizontal/vertical flip, and load the per-slot shifters.
     /// Slots beyond `sprites.count` get zeroed pattern data.
+    ///
+    /// TODO(M11): real hardware spreads sprite fetches across dots 257-320
+    /// as 8 per-sprite fetch groups of 8 dots each (garbage NT, garbage NT,
+    /// pat lo, pat hi). We collapse all 8 to a single instant at dot 320,
+    /// producing 8 A12 rising edges in immediate succession instead of
+    /// spread across the window. MMC3's IRQ filter will mistrigger until
+    /// this is per-dot. NROM ignores A12 so the collapse is invisible at M2.
+    /// See global spec §7.8 M2 deferrals.
     fn fetch_sprite_patterns(&mut self, mapper: &mut MapperKind) {
         // Called at dot 320 of scanline N to prepare shifters for scanline N+1.
         // OAM Y is "scanline displayed minus 1," so a sprite at OAM Y appears
@@ -215,6 +223,14 @@ impl Ppu {
     /// first on scanline Y+1. The in-range check for display on scanline N+1
     /// simplifies to `0 <= (N+1) - (Y+1) < height` → `0 <= N - Y < height`,
     /// hence using current scanline directly.
+    ///
+    /// TODO(M11): real hardware spreads sprite eval across dots 65-256 with
+    /// a per-dot state machine; the post-8th-sprite diagonal walk (OAMADDR
+    /// increments by 5 instead of 4, treating attribute/tile bytes as Y
+    /// values) produces sprite-overflow-flag false positives that
+    /// `sprite_overflow_tests.nes` checks for. Our collapsed scan sets the
+    /// overflow flag on the linear 9th in-range sprite — close but not
+    /// hardware-correct. See global spec §7.8 M2 deferrals.
     fn evaluate_sprites_for_next_scanline(&mut self) {
         let current_scanline = self.state.scanline as i16;
         let sprite_height: i16 = if self.regs.sprite_size_8x16() { 16 } else { 8 };

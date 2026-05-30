@@ -65,9 +65,16 @@ jobs:
           toolchain: 1.94.0
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --version 0.13.1 --locked
       - name: Install trunk
         run: cargo install trunk --version 0.21.14 --locked
+      - name: WASM determinism test (headless Chrome)
+        run: wasm-pack test --headless --chrome crates/nies-web
       - run: cargo build --target wasm32-unknown-unknown -p nies-web
       - run: trunk build --release
       - name: WASM size report
-        run: ls -lh dist/*.wasm
+        run: |
+          echo "### WASM bundle size" >> "$GITHUB_STEP_SUMMARY"
+          ls -lh dist/*.wasm | tee -a "$GITHUB_STEP_SUMMARY"
+          gzip -c dist/*.wasm | wc -c | awk '{print "gzipped bytes: " $1}' | tee -a "$GITHUB_STEP_SUMMARY"

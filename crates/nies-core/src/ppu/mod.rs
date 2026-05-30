@@ -11,23 +11,42 @@
 //! - sprite.rs (Task 39+): sprite eval, fetch, sprite-0 hit
 
 pub mod oam;
+pub mod palette;
 pub mod registers;
 pub mod state;
 pub mod vram;
 
 use crate::mapper::MapperKind;
 use oam::Oam;
+use palette::Palette;
 use registers::Registers;
 use serde::{Deserialize, Serialize};
+use serde_big_array::BigArray;
 use state::PpuState;
 use vram::Vram;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ppu {
     pub state: PpuState,
     pub regs: Registers,
     pub vram: Vram,
     pub oam: Oam,
+    pub palette: Palette,
+    #[serde(with = "BigArray")]
+    pub framebuffer: [u8; 256 * 240],
+}
+
+impl Default for Ppu {
+    fn default() -> Self {
+        Self {
+            state: PpuState::default(),
+            regs: Registers::default(),
+            vram: Vram::default(),
+            oam: Oam::default(),
+            palette: Palette::default(),
+            framebuffer: [0; 256 * 240],
+        }
+    }
 }
 
 impl Ppu {

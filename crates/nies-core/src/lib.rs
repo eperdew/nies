@@ -17,6 +17,7 @@ pub use bus::{Bus, BusLike};
 pub use cartridge::{Cartridge, CartridgeError, Mirroring, NesFormat};
 pub use cpu::Cpu;
 pub use mapper::{MapperImpl, MapperKind};
+pub use ppu::Ppu;
 
 #[cfg(test)]
 mod tests {

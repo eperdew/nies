@@ -23,6 +23,9 @@ pub struct Bus {
     /// Used as the read result for unmapped addresses (a real-hardware
     /// quirk that some test ROMs depend on).
     pub open_bus: u8,
+    /// Pending NMI edge latched from the PPU. Drained by the CPU via
+    /// `take_pending_nmi()` at the next instruction boundary.
+    pub pending_nmi: bool,
 }
 
 impl Bus {
@@ -42,6 +45,7 @@ impl Bus {
             controllers: [Controller::new(), Controller::new()],
             cycle: 0,
             open_bus: 0,
+            pending_nmi: false,
         }
     }
 
@@ -68,6 +72,9 @@ impl Bus {
         // 3 PPU dots per CPU cycle (NTSC).
         for _ in 0..3 {
             self.ppu.step(&mut self.mapper);
+            if self.ppu.take_nmi() {
+                self.pending_nmi = true;
+            }
         }
         // 1 APU step per CPU cycle.
         self.apu.step(&mut self.mapper);
@@ -88,10 +95,22 @@ impl Bus {
         for _ in 0..cycles {
             for _ in 0..3 {
                 self.ppu.step(&mut self.mapper);
+                if self.ppu.take_nmi() {
+                    self.pending_nmi = true;
+                }
             }
             self.apu.step(&mut self.mapper);
             self.cycle = self.cycle.wrapping_add(1);
         }
+    }
+
+    /// Drain the bus-level pending NMI latch. Called by the CPU at the
+    /// next instruction boundary to learn that the PPU has raised an
+    /// NMI edge since the last poll.
+    pub fn take_pending_nmi(&mut self) -> bool {
+        let v = self.pending_nmi;
+        self.pending_nmi = false;
+        v
     }
 
     /// Read a byte from the CPU bus. Ticks the system one CPU cycle.
@@ -111,12 +130,7 @@ impl Bus {
     pub(crate) fn read_no_tick(&mut self, addr: u16) -> u8 {
         match addr {
             0x0000..=0x1FFF => self.ram[(addr & 0x07FF) as usize],
-            0x2000..=0x3FFF => {
-                // PPU register space: $2000-$2007 mirrored every 8 bytes.
-                // Real PPU read effects (PPUSTATUS clear, PPUDATA buffer)
-                // land in M2; M1 returns open-bus.
-                self.open_bus
-            }
+            0x2000..=0x3FFF => self.ppu.cpu_read(&mut self.mapper, addr),
             0x4000..=0x4015 => self.open_bus, // APU registers: M5
             0x4016 => 0,                      // Controller 1: M4 will fill in
             0x4017 => 0,                      // Controller 2 / APU frame counter: M4/M5
@@ -128,7 +142,36 @@ impl Bus {
     /// Write a byte to the CPU bus. Ticks the system one CPU cycle.
     pub fn write(&mut self, addr: u16, val: u8) {
         self.tick();
-        self.write_no_tick(addr, val);
+        if addr == 0x4014 {
+            self.do_oamdma(val);
+        } else {
+            self.write_no_tick(addr, val);
+        }
+    }
+
+    /// OAMDMA at $4014: copy 256 bytes from CPU page `page << 8` into OAM via
+    /// the PPU's $2004 path (so OAMADDR auto-increment is honored). The
+    /// triggering $4014 write itself costs the 1 cycle already ticked by
+    /// `Bus::write`; this routine adds 0 or 1 alignment cycles (depending
+    /// on parity), followed by 256 pairs of (no-tick read, tick, ppu write,
+    /// tick) — 512 cycles of copy. Total: 513 (even-aligned trigger) or
+    /// 514 (odd-aligned trigger) CPU cycles.
+    fn do_oamdma(&mut self, page: u8) {
+        self.open_bus = page;
+        // `self.cycle` is already (trigger_cycle + 1) because Bus::write
+        // called tick(). If trigger_cycle was odd → self.cycle is even →
+        // 1 alignment tick. If trigger_cycle was even → self.cycle is odd
+        // → 0 alignment ticks.
+        if self.cycle.is_multiple_of(2) {
+            self.tick();
+        }
+        let page_base = (page as u16) << 8;
+        for i in 0..256u16 {
+            let byte = self.read_no_tick(page_base + i);
+            self.tick();
+            self.ppu.cpu_write(&mut self.mapper, 0x2004, byte);
+            self.tick();
+        }
     }
 
     /// Internal: write the data bus and update the address-decoder side
@@ -138,17 +181,15 @@ impl Bus {
         self.open_bus = val;
         match addr {
             0x0000..=0x1FFF => self.ram[(addr & 0x07FF) as usize] = val,
-            0x2000..=0x3FFF => {
-                // PPU register write: M2.
-                let _ = val;
-            }
+            0x2000..=0x3FFF => self.ppu.cpu_write(&mut self.mapper, addr, val),
             0x4000..=0x4013 | 0x4015 => {
                 // APU register write: M5.
                 let _ = val;
             }
             0x4014 => {
-                // OAMDMA: M2/M3 will implement the 256-byte transfer.
-                let _ = val;
+                // OAMDMA: the real transfer happens in `Bus::write` via
+                // `do_oamdma`. No-tick callers (the debugger's force-write
+                // path) skip the DMA entirely.
             }
             0x4016 => {
                 self.controllers[0].write_strobe(val);
@@ -191,6 +232,12 @@ pub trait BusLike {
     fn mapper_irq_pending(&self) -> bool {
         false
     }
+    /// Drain any pending NMI edge raised by the PPU since the last poll.
+    /// Production: forwards to `Bus::take_pending_nmi`. Tests: always
+    /// false (SingleStepTests/FlatBus has no PPU).
+    fn take_pending_nmi(&mut self) -> bool {
+        false
+    }
 }
 
 impl BusLike for Bus {
@@ -203,6 +250,9 @@ impl BusLike for Bus {
     fn mapper_irq_pending(&self) -> bool {
         use crate::mapper::MapperImpl;
         self.mapper.irq_pending()
+    }
+    fn take_pending_nmi(&mut self) -> bool {
+        Bus::take_pending_nmi(self)
     }
 }
 
@@ -286,9 +336,9 @@ mod tests {
     #[test]
     fn read_advances_ppu_three_dots() {
         let mut bus = fake_bus();
-        let dots_before = bus.ppu.dots;
+        let dots_before = bus.ppu.state.dot;
         let _ = bus.read(0x0000);
-        assert_eq!(bus.ppu.dots, dots_before + 3);
+        assert_eq!(bus.ppu.state.dot, dots_before + 3);
     }
 
     #[test]
@@ -297,6 +347,30 @@ mod tests {
         let apu_cycles_before = bus.apu.cycles;
         let _ = bus.read(0x0000);
         assert_eq!(bus.apu.cycles, apu_cycles_before + 1);
+    }
+
+    #[test]
+    fn oamdma_copies_256_bytes_from_page_to_oam() {
+        let mut bus = fake_bus();
+        // Seed RAM page $02 ($0200-$02FF) with 0..255.
+        for i in 0..256u16 {
+            bus.write_no_tick(0x0200 + i, i as u8);
+        }
+        let cycles_before = bus.cycle;
+        bus.write(0x4014, 0x02);
+        let cycles_after = bus.cycle;
+        let dma_cycles = cycles_after - cycles_before;
+        assert!(
+            dma_cycles == 513 || dma_cycles == 514,
+            "expected 513 or 514 cycles, got {dma_cycles}"
+        );
+        // OAM should now hold 0..255 — except attribute bytes (every 4th
+        // byte starting at offset 2) have bits 2-4 masked off in hardware.
+        for i in 0..256u16 {
+            let idx = i as u8;
+            let expected = if idx & 0x03 == 0x02 { idx & 0xE3 } else { idx };
+            assert_eq!(bus.ppu.oam.read(idx), expected, "oam[{idx}] mismatch");
+        }
     }
 
     #[test]

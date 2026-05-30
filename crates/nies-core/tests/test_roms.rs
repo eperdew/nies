@@ -274,3 +274,275 @@ fn blargg_instr_timing_2_branch_timing() {
 // non-NROM mappers; their integration tests are deferred to M11+ when
 // those mappers land. The ROMs are vendored so they can be wired up
 // without re-vendoring at that time.
+
+// M2 PPU vblank/NMI timing suite. Each sub-test is a separate NROM
+// build of blargg's ppu_vbl_nmi tests, exercising a specific timing
+// edge case (vblank set/clear time, NMI control, suppression races,
+// odd-frame timing).
+
+#[test]
+fn blargg_ppu_vbl_nmi_01_basics() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/01-vbl_basics.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_ppu_vbl_nmi_02_vbl_set_time() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/02-vbl_set_time.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_ppu_vbl_nmi_03_vbl_clear_time() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/03-vbl_clear_time.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_ppu_vbl_nmi_04_nmi_control() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/04-nmi_control.nes"),
+        60_000_000,
+    );
+}
+
+// Sub-tests 05-08 measure NMI dispatch latency at single-cycle precision.
+// On a real 6502, interrupts are polled on the penultimate cycle of every
+// instruction; our CPU samples at instruction boundaries instead. The
+// resulting off-by-one shows up as "NMI fires 2-4 cycles late" in 05, and
+// as wrong V/N columns at the suppression edges in 06/07/08. Implementing
+// per-cycle interrupt polling is a CPU-wide refactor (every opcode handler
+// needs to participate); it's deferred to a later milestone where APU
+// frame-counter IRQ timing will need the same infrastructure. See M2
+// design spec §4.4 and global spec §7.8.
+#[test]
+#[ignore = "requires per-cycle interrupt polling (penultimate-cycle 6502 sampling); deferred — see spec §7.8"]
+fn blargg_ppu_vbl_nmi_05_nmi_timing() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/05-nmi_timing.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+#[ignore = "requires per-cycle interrupt polling (penultimate-cycle 6502 sampling); deferred — see spec §7.8"]
+fn blargg_ppu_vbl_nmi_06_suppression() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/06-suppression.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+#[ignore = "requires per-cycle interrupt polling (penultimate-cycle 6502 sampling); deferred — see spec §7.8"]
+fn blargg_ppu_vbl_nmi_07_nmi_on_timing() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/07-nmi_on_timing.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+#[ignore = "requires per-cycle interrupt polling (penultimate-cycle 6502 sampling); deferred — see spec §7.8"]
+fn blargg_ppu_vbl_nmi_08_nmi_off_timing() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/08-nmi_off_timing.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_ppu_vbl_nmi_09_even_odd_frames() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/09-even_odd_frames.nes"),
+        60_000_000,
+    );
+}
+
+// 10-even_odd_timing measures the cycle at which the dot-339 skip on odd
+// pre-render scanlines fires *relative to a mid-frame PPUMASK BG-enable
+// write*. Our `rendering_enabled` is sampled at the top of each PPU step,
+// so a PPUMASK write during the same CPU cycle as dot 338→339 sees the
+// skip applied one CPU cycle (~3 PPU dots) "late" from the test's
+// perspective. The fix is sub-PPU-step register write granularity, which
+// is intertwined with per-cycle interrupt polling; deferred together.
+#[test]
+#[ignore = "odd-frame skip vs mid-frame PPUMASK write needs sub-step register granularity; deferred — see spec §7.8"]
+fn blargg_ppu_vbl_nmi_10_even_odd_timing() {
+    assert_rom_passes(
+        &format!("{ROOT}/blargg/ppu_vbl_nmi/10-even_odd_timing.nes"),
+        60_000_000,
+    );
+}
+
+// M2 PPU sprite-zero-hit suite. Each sub-test exercises a specific
+// edge of the sprite-0 hit detection (basic firing, pixel alignment,
+// corner pixels, flip flags, left-column clipping, x=255 suppression,
+// scanline 239 bottom-row exclusion, 8x16 mode, and three cycle-precise
+// timing tests).
+
+/// Runner for blargg's sprite_hit_tests_2005.10.05 suite. These ROMs do
+/// NOT use the $6000 status protocol — they display results on screen
+/// and beep. They store the result in zero-page $F8:
+/// - `$F8 == 1` → all sub-tests passed
+/// - any other value → failure code of the failing sub-test (see the
+///   suite's readme.txt for code → meaning)
+///
+/// Every ROM ends in a `JMP <self>` infinite loop ("done trap") at one
+/// of several addresses depending on the ROM. We detect this trap by
+/// checking whether the byte at PC is `$4C` (JMP absolute) and the
+/// operand equals PC — i.e., a self-jump.
+fn assert_sprite_hit_rom_passes(path: &str, max_cycles: u64) {
+    let bytes = std::fs::read(path).expect("read rom");
+    let cart = Cartridge::from_bytes(&bytes).expect("parse rom");
+    let mapper = MapperKind::from_cartridge(&cart).expect("build mapper");
+    let mut bus = Bus::new(mapper);
+    let mut cpu = Cpu::new();
+    cpu.reset(&mut bus);
+
+    let start = bus.cycle;
+    while bus.cycle - start < max_cycles {
+        cpu.step(&mut bus);
+        // Detect `JMP $self` infinite loop at PC. JMP abs opcode = $4C.
+        if bus.peek(cpu.pc) == 0x4C {
+            let lo = bus.peek(cpu.pc.wrapping_add(1)) as u16;
+            let hi = bus.peek(cpu.pc.wrapping_add(2)) as u16;
+            let target = (hi << 8) | lo;
+            if target == cpu.pc {
+                let f8 = bus.peek(0xF8);
+                if f8 == 1 {
+                    return; // success
+                }
+                panic!(
+                    "{path}: sprite_hit ROM failed with $F8 = {f8:#04x} (see readme.txt for code meaning)"
+                );
+            }
+        }
+    }
+    panic!(
+        "{path}: sprite_hit ROM timed out (cycle budget {max_cycles} exhausted, last $F8 = {:#04x})",
+        bus.peek(0xF8)
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_01_basics() {
+    assert_sprite_hit_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/01.basics.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_02_alignment() {
+    assert_sprite_hit_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/02.alignment.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_03_corners() {
+    assert_sprite_hit_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/03.corners.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_04_flip() {
+    assert_sprite_hit_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/04.flip.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_05_left_clip() {
+    assert_sprite_hit_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/05.left_clip.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_06_right_edge() {
+    assert_sprite_hit_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/06.right_edge.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+#[ignore = "M2 deferral: precise sprite-0 hit timing at the bottom-of-screen \
+    boundary (scanline 239) depends on sub-instruction CPU/PPU phase alignment. \
+    Re-enable at M5 with per-cycle interrupt-poll/register-write infrastructure \
+    (same root cause as the deferred ppu_vbl_nmi 05-08, 10)."]
+fn blargg_sprite_hit_07_screen_bottom() {
+    assert_sprite_hit_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/07.screen_bottom.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_08_double_height() {
+    assert_sprite_hit_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/08.double_height.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+#[ignore = "M2 deferral: tests when sprite-0 hit is observable via PPUSTATUS \
+    reads at single-cycle precision. Depends on per-cycle CPU/PPU phase \
+    alignment that lives behind the same M5 refactor as the deferred \
+    ppu_vbl_nmi 05-08, 10."]
+fn blargg_sprite_hit_09_timing_basics() {
+    assert_sprite_hit_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/09.timing_basics.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+#[ignore = "M2 deferral: tests sprite-0 hit ordering relative to other PPU \
+    events at single-cycle precision. Same M5 per-cycle alignment dependency \
+    as 09.timing_basics."]
+fn blargg_sprite_hit_10_timing_order() {
+    assert_sprite_hit_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/10.timing_order.nes"),
+        60_000_000,
+    );
+}
+
+#[test]
+fn blargg_sprite_hit_11_edge_timing() {
+    assert_sprite_hit_rom_passes(
+        &format!("{ROOT}/blargg/sprite_hit_tests_2005.10.05/11.edge_timing.nes"),
+        60_000_000,
+    );
+}
+
+// M2 PPU OAM behavior suite. Both ROMs use the standard $6000 status protocol.
+// `oam_read.nes` exercises OAMDATA read behavior (including the $FF-during-clear
+// window on dots 1-64 of visible scanlines) and OAMADDR auto-increment on
+// $2004 writes. `oam_stress.nes` is a longer suite that hammers OAMADDR
+// corruption during rendering and various OAMDATA edge cases.
+
+#[test]
+fn blargg_oam_read() {
+    assert_rom_passes(&format!("{ROOT}/blargg/oam_read.nes"), 60_000_000);
+}
+
+#[test]
+fn blargg_oam_stress() {
+    // oam_stress is the longer test — give it more cycles.
+    assert_rom_passes(&format!("{ROOT}/blargg/oam_stress.nes"), 120_000_000);
+}

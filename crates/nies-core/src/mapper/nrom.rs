@@ -15,6 +15,8 @@ pub struct NromState {
     mirroring: Mirroring,
     /// True iff CHR was provided as ROM (read-only). Some homebrew NROM uses CHR-RAM.
     chr_is_rom: bool,
+    #[cfg(test)]
+    pub a12_log: std::cell::RefCell<Vec<bool>>,
 }
 
 impl NromState {
@@ -33,8 +35,18 @@ impl NromState {
             prg_ram,
             mirroring: cart.mirroring,
             chr_is_rom,
+            #[cfg(test)]
+            a12_log: std::cell::RefCell::new(Vec::new()),
         }
     }
+
+    #[cfg(test)]
+    pub fn notify_a12(&mut self, level: bool) {
+        self.a12_log.borrow_mut().push(level);
+    }
+
+    #[cfg(not(test))]
+    pub fn notify_a12(&mut self, _level: bool) {}
 
     pub fn cpu_read(&self, addr: u16) -> u8 {
         // NROM has no read side effects, so read == peek.

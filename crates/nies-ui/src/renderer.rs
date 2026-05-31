@@ -29,7 +29,12 @@ impl NesRenderer {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::R8Uint,
+            // R8Unorm (not R8Uint): integer textures + texture_2d<u32> render
+            // black under the WebGL/WebGPU browser backends. We store the
+            // palette index as a normalized byte and recover it in the shader
+            // via round(v * 255). Works on every backend; the golden hash is
+            // over indices in the core, so this is render-only (spec §4.4).
+            format: wgpu::TextureFormat::R8Unorm,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
@@ -60,7 +65,9 @@ impl NesRenderer {
                     binding: 0,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Uint,
+                        // R8Unorm is a float-sampled texture; we use textureLoad
+                        // (no sampler), so filterable can be false.
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
                         view_dimension: wgpu::TextureViewDimension::D2,
                         multisampled: false,
                     },

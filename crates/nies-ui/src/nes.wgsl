@@ -7,7 +7,7 @@ struct Palette {
     colors: array<vec4<f32>, 64>,
 };
 
-@group(0) @binding(0) var index_tex: texture_2d<u32>;
+@group(0) @binding(0) var index_tex: texture_2d<f32>;
 @group(0) @binding(1) var<uniform> palette: Palette;
 
 struct VsOut {
@@ -32,9 +32,10 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
     let dim = vec2<f32>(256.0, 240.0);
     let coord = vec2<i32>(clamp(in.uv, vec2<f32>(0.0), vec2<f32>(1.0)) * dim);
     let c = clamp(coord, vec2<i32>(0), vec2<i32>(255, 239));
+    // R8Unorm stores the palette index as a normalized byte; recover it.
     // Mask to 6 bits: NES palette indices are 0..=63, and WGSL out-of-bounds
     // array indexing is implementation-defined, so guard against a stray
     // framebuffer byte > 0x3F.
-    let index = textureLoad(index_tex, c, 0).r & 63u;
+    let index = u32(round(textureLoad(index_tex, c, 0).r * 255.0)) & 63u;
     return palette.colors[index];
 }

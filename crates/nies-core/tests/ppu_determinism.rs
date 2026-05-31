@@ -3,7 +3,7 @@
 //! Task 5 upgrades it to a pinned golden constant.
 
 use nies_core::Nes;
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::hash::{DefaultHasher, Hasher};
 
 const N_FRAMES: u64 = 200;
 
@@ -15,10 +15,11 @@ fn demo_ntsc_framebuffer_is_self_deterministic() {
 }
 
 /// Pinned golden hash of the demo_ntsc index framebuffer after N_FRAMES.
-/// Recorded once from a known-good run (Task 5, Step 1). The same constant
-/// is asserted under wasm32 in crates/nies-web/tests/determinism_wasm.rs;
-/// keep the two in sync. A change here is a real determinism regression —
-/// render the frame and diff against a reference before touching it.
+/// Computed via `run_and_hash` (portable `Hasher::write` — see its comment).
+/// The same constant is asserted under wasm32 in
+/// crates/nies-web/tests/determinism_wasm.rs; keep the two in sync. A change
+/// here is a real determinism regression — render the frame and diff against
+/// a reference before touching it.
 ///
 /// KNOWN PRE-M5 TIMING: demo_ntsc draws an NMI-synchronized "middle line"
 /// whose position encodes NMI-dispatch precision. Our CPU samples
@@ -28,7 +29,7 @@ fn demo_ntsc_framebuffer_is_self_deterministic() {
 /// hash is stable and valid as a cross-platform gate — but the value will
 /// need re-pinning once M5's per-cycle interrupt polling lands. (Ruled out
 /// the M11 sprite-eval-collapse: demo_ntsc never reads $2004 mid-scanline.)
-const GOLDEN_FB_HASH: u64 = 0xdf3e45e98c8063b5;
+const GOLDEN_FB_HASH: u64 = 0x886769044cc33914;
 
 #[test]
 fn demo_ntsc_framebuffer_matches_golden_hash() {
@@ -45,6 +46,12 @@ fn run_and_hash(n_frames: u64) -> u64 {
         nes.run_frame();
     }
     let mut h = DefaultHasher::new();
-    nes.frame().hash(&mut h);
+    // Hash the raw bytes via `Hasher::write`, NOT `frame().hash()`. The slice
+    // `Hash` impl prepends a `usize` length prefix, and `usize` is 8 bytes on
+    // 64-bit native but 4 bytes on wasm32 — so `.hash()` yields a different
+    // value per pointer width even for identical bytes, breaking the
+    // cross-platform gate. `write` absorbs only the bytes; SipHash's u64/LE
+    // internals are platform-independent.
+    h.write(nes.frame());
     h.finish()
 }

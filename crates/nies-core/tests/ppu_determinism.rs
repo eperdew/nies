@@ -1,42 +1,57 @@
-//! M2 PPU determinism check: nmi_sync/demo_ntsc.nes produces a
-//! self-deterministic framebuffer. Per the M2 design spec §4.3, this
-//! is *not* a correctness check — that lands at M3 when there's a
-//! renderer to debug a hash mismatch.
+//! M3 PPU determinism: demo_ntsc.nes produces a stable framebuffer hash.
+//! Task 4 keeps this as a self-determinism check (run-twice equality);
+//! Task 5 upgrades it to a pinned golden constant.
 
-use nies_core::bus::Bus;
-use nies_core::cartridge::Cartridge;
-use nies_core::cpu::Cpu;
-use nies_core::mapper::MapperKind;
-use std::hash::{DefaultHasher, Hash, Hasher};
+use nies_core::Nes;
+use std::hash::{DefaultHasher, Hasher};
 
-const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/roms");
 const N_FRAMES: u64 = 200;
 
 #[test]
-fn nmi_sync_demo_ntsc_is_deterministic() {
-    let path = format!("{ROOT}/nmi_sync/demo_ntsc.nes");
-    let h1 = run_and_hash(&path, N_FRAMES);
-    let h2 = run_and_hash(&path, N_FRAMES);
+fn demo_ntsc_framebuffer_is_self_deterministic() {
+    let h1 = run_and_hash(N_FRAMES);
+    let h2 = run_and_hash(N_FRAMES);
+    assert_eq!(h1, h2, "framebuffer hash differs across identical runs");
+}
+
+/// Pinned golden hash of the demo_ntsc index framebuffer after N_FRAMES.
+/// Computed via `run_and_hash` (portable `Hasher::write` — see its comment).
+/// The same constant is asserted under wasm32 in
+/// crates/nies-web/tests/determinism_wasm.rs; keep the two in sync. A change
+/// here is a real determinism regression — render the frame and diff against
+/// a reference before touching it.
+///
+/// KNOWN PRE-M5 TIMING: demo_ntsc draws an NMI-synchronized "middle line"
+/// whose position encodes NMI-dispatch precision. Our CPU samples
+/// interrupts at instruction boundaries, not the penultimate cycle (global
+/// spec §7.8, deferred to M5), so the line renders shifted slightly left of
+/// where a cycle-accurate emulator puts it. This is deterministic, so the
+/// hash is stable and valid as a cross-platform gate — but the value will
+/// need re-pinning once M5's per-cycle interrupt polling lands. (Ruled out
+/// the M11 sprite-eval-collapse: demo_ntsc never reads $2004 mid-scanline.)
+const GOLDEN_FB_HASH: u64 = 0x886769044cc33914;
+
+#[test]
+fn demo_ntsc_framebuffer_matches_golden_hash() {
     assert_eq!(
-        h1, h2,
-        "framebuffer hash differs across two identical {N_FRAMES}-frame runs"
+        run_and_hash(N_FRAMES),
+        GOLDEN_FB_HASH,
+        "demo_ntsc framebuffer hash drifted from the pinned golden value"
     );
 }
 
-fn run_and_hash(path: &str, n_frames: u64) -> u64 {
-    let bytes = std::fs::read(path).expect("read rom");
-    let cart = Cartridge::from_bytes(&bytes).expect("parse rom");
-    let mapper = MapperKind::from_cartridge(&cart).expect("build mapper");
-    let mut bus = Bus::new(mapper);
-    let mut cpu = Cpu::new();
-    cpu.reset(&mut bus);
-
-    let target_frame = bus.ppu.frames() + n_frames;
-    while bus.ppu.frames() < target_frame {
-        cpu.step(&mut bus);
+fn run_and_hash(n_frames: u64) -> u64 {
+    let mut nes = Nes::from_rom_bytes(nies_core::demo_rom_bytes()).expect("build Nes");
+    for _ in 0..n_frames {
+        nes.run_frame();
     }
-
     let mut h = DefaultHasher::new();
-    bus.ppu.frame().hash(&mut h);
+    // Hash the raw bytes via `Hasher::write`, NOT `frame().hash()`. The slice
+    // `Hash` impl prepends a `usize` length prefix, and `usize` is 8 bytes on
+    // 64-bit native but 4 bytes on wasm32 — so `.hash()` yields a different
+    // value per pointer width even for identical bytes, breaking the
+    // cross-platform gate. `write` absorbs only the bytes; SipHash's u64/LE
+    // internals are platform-independent.
+    h.write(nes.frame());
     h.finish()
 }

@@ -5,13 +5,6 @@ use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{Window, WindowId};
 
-const SENTINEL_CLEAR: wgpu::Color = wgpu::Color {
-    r: 0.6,
-    g: 0.05,
-    b: 0.6,
-    a: 1.0,
-};
-
 enum RenderOutcome {
     Presented,
     Reconfigured,
@@ -23,10 +16,14 @@ struct GpuState {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
+    renderer: nies_ui::NesRenderer,
+    // Boxed for parity with the web frontend, where moving the ~66 KB Nes
+    // (inline PPU framebuffer) by value overflows the wasm shadow stack.
+    nes: Box<nies_core::Nes>,
 }
 
 impl GpuState {
-    async fn new(window: Arc<Window>) -> Self {
+    async fn new(window: Arc<Window>, rom_bytes: &[u8]) -> Self {
         let instance =
             wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
         let surface = instance
@@ -59,11 +56,23 @@ impl GpuState {
             view_formats: vec![],
         };
         surface.configure(&device, &config);
+
+        let renderer = nies_ui::NesRenderer::new(&device, &queue, config.format);
+        let nes = Box::new(
+            nies_core::Nes::from_rom_bytes(rom_bytes).unwrap_or_else(|e| {
+                log::error!("ROM failed to parse ({e:?}); falling back to embedded demo");
+                nies_core::Nes::from_rom_bytes(nies_core::demo_rom_bytes())
+                    .expect("demo ROM builds")
+            }),
+        );
+
         Self {
             surface,
             device,
             queue,
             config,
+            renderer,
+            nes,
         }
     }
 
@@ -95,37 +104,34 @@ impl GpuState {
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
+
+        self.nes.run_frame();
+        self.renderer.upload_frame(&self.queue, self.nes.frame());
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-        {
-            let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("clear"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(SENTINEL_CLEAR),
-                        store: wgpu::StoreOp::Store,
-                    },
-                    depth_slice: None,
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-        }
+        self.renderer
+            .render(&mut encoder, &view, (self.config.width, self.config.height));
         self.queue.submit(std::iter::once(encoder.finish()));
         frame.present();
         RenderOutcome::Presented
     }
 }
 
-#[derive(Default)]
 struct App {
     window: Option<Arc<Window>>,
     gpu: Option<GpuState>,
+    rom_bytes: Vec<u8>,
+}
+
+impl App {
+    fn new(rom_bytes: Vec<u8>) -> Self {
+        Self {
+            window: None,
+            gpu: None,
+            rom_bytes,
+        }
+    }
 }
 
 impl ApplicationHandler for App {
@@ -139,7 +145,7 @@ impl ApplicationHandler for App {
                 )
                 .expect("create window"),
         );
-        let gpu = pollster::block_on(GpuState::new(window.clone()));
+        let gpu = pollster::block_on(GpuState::new(window.clone(), &self.rom_bytes));
         self.window = Some(window);
         self.gpu = Some(gpu);
     }
@@ -177,7 +183,19 @@ impl ApplicationHandler for App {
 fn main() {
     env_logger::init();
     log::info!("nies-app starting");
+
+    let rom_bytes: Vec<u8> = match std::env::args().nth(1) {
+        Some(path) => match std::fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                log::error!("failed to read ROM '{path}': {e}; using embedded demo");
+                nies_core::demo_rom_bytes().to_vec()
+            }
+        },
+        None => nies_core::demo_rom_bytes().to_vec(),
+    };
+
     let event_loop = EventLoop::new().expect("create event loop");
-    let mut app = App::default();
+    let mut app = App::new(rom_bytes);
     event_loop.run_app(&mut app).expect("run event loop");
 }

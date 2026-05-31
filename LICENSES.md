@@ -107,3 +107,9 @@ https://github.com/christopherpow/nes-test-roms.
 
 Third-party Rust crate licenses are surfaced via `cargo about`
 (or equivalent) prior to v1 release. None are included verbatim here.
+
+### Palettes
+
+- `crates/nies-ui/assets/smooth_fbx.pal` — "Smooth (FBX)" NES palette by
+  FirebrandX. 64 entries × RGB (192 bytes). Freely redistributable; used
+  as the default M3 palette LUT.

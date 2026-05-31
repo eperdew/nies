@@ -651,6 +651,8 @@ The aggregate signal at M1: 256/256 SingleStepTests opcodes pass + 16/16 NROM-co
 
 The aggregate signal at M2: 5/10 `ppu_vbl_nmi` sub-tests pass (01, 02, 03, 04, 09 — covering vblank set/clear time, NMI control, and odd/even frame parity); 8/11 `sprite_hit_tests` pass (01-06, 08, 11 — covering hit basics, alignment, corners, flip, left/right clipping, double-height, and edge timing) plus the remaining M2 gates (OAM, nmi_sync self-determinism). The 8 deferred sub-tests (5 ppu_vbl_nmi + 3 sprite_hit) all amend the M2 design spec §1.3 acceptance gate via this row; no commercial NES game depends on sub-instruction NMI/status sample timing (per blargg's own notes the tests are calibrated against emulator authors, not games).
 
+**M3 observation — `nmi_sync/demo_ntsc.nes` line position.** Once M3 put the framebuffer on screen, `demo_ntsc`'s NMI-synchronized "middle line" renders shifted slightly left of a cycle-accurate emulator's. Root cause confirmed during M3: the same instruction-boundary interrupt sampling above (we service the NMI at the next instruction boundary, up to ~7 cycles late, rather than the penultimate cycle), which deterministically offsets the timing-positioned line. **Not** the M11 sprite-eval/fetch collapse — instrumentation showed `demo_ntsc` performs zero `$2004` reads during the dots 65-256 eval window, so the collapse cannot affect its output. Re-enable cycle-accurate positioning at **M5** (per-cycle interrupt polling); the M3 golden framebuffer hash (`crates/nies-core/tests/ppu_determinism.rs`) encodes the pre-M5 line position and will need re-pinning then.
+
 ## 8. Milestones
 
 ```
@@ -703,6 +705,12 @@ Emulator framebuffer on screen at 60 Hz, native and WASM.
 - Both `nies-app` and `nies-web` render correctly.
 
 **Gate:** `nmi_sync/demo_ntsc.nes` framebuffer matches golden hash on Mac and WASM. WASM build size + load time recorded for regression.
+
+> **Status (M3 complete):** `Nes` driver added; shared `NesRenderer` (R8Uint
+> index texture → FBX Smooth palette-LUT WGSL shader → integer-scaled blit)
+> in `nies-ui`; both binaries render. Golden hash of the demo_ntsc index
+> framebuffer pinned and asserted natively and via `wasm-bindgen-test`. See
+> [`2026-05-30-m3-frontend-rendering-design.md`](2026-05-30-m3-frontend-rendering-design.md).
 
 ### M4 — Input
 
@@ -801,7 +809,8 @@ Ship-quality v1.
 Non-blocking items to revisit later:
 
 - **License for `nies`**: not chosen yet. Affects M15 (conditional breakpoints) and any future dependency choices that have copyleft-vs-permissive implications.
-- **Default palette**: pick between FBX Smooth and Nostalgia during M3.
+- **Default palette**: **FBX Smooth**, chosen at M3 (vendored 64-entry
+  `smooth_fbx.pal`). Nostalgia (FBX) remains a future selectable option (M10).
 - **Audio sample rate**: default to 48 kHz, but config allows others. Validate behavior at 44.1 kHz and 96 kHz when M5 is done.
 - **Trunk vs alternative WASM bundlers**: Trunk chosen; alternative `wasm-pack` + custom HTML is a fallback if Trunk pinning becomes painful.
 - **Sub-instruction (tier 3) accuracy**: explicitly out of scope for v1; revisit if/when the project ambition extends to "compete with Mesen."

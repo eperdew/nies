@@ -17,7 +17,9 @@ struct GpuState {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     renderer: nies_ui::NesRenderer,
-    nes: nies_core::Nes,
+    // Boxed for parity with the web frontend, where moving the ~66 KB Nes
+    // (inline PPU framebuffer) by value overflows the wasm shadow stack.
+    nes: Box<nies_core::Nes>,
 }
 
 impl GpuState {
@@ -56,10 +58,13 @@ impl GpuState {
         surface.configure(&device, &config);
 
         let renderer = nies_ui::NesRenderer::new(&device, &queue, config.format);
-        let nes = nies_core::Nes::from_rom_bytes(rom_bytes).unwrap_or_else(|e| {
-            log::error!("ROM failed to parse ({e:?}); falling back to embedded demo");
-            nies_core::Nes::from_rom_bytes(nies_core::demo_rom_bytes()).expect("demo ROM builds")
-        });
+        let nes = Box::new(
+            nies_core::Nes::from_rom_bytes(rom_bytes).unwrap_or_else(|e| {
+                log::error!("ROM failed to parse ({e:?}); falling back to embedded demo");
+                nies_core::Nes::from_rom_bytes(nies_core::demo_rom_bytes())
+                    .expect("demo ROM builds")
+            }),
+        );
 
         Self {
             surface,

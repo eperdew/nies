@@ -21,7 +21,11 @@ struct GpuState {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     renderer: nies_ui::NesRenderer,
-    nes: nies_core::Nes,
+    // Boxed: Nes is ~66 KB (inline PPU framebuffer). Keeping it behind a
+    // pointer means GpuState stays small, so moving it through the
+    // GpuReady event / spawn_local future doesn't push 66 KB across the
+    // wasm shadow stack on every move.
+    nes: Box<nies_core::Nes>,
 }
 
 impl GpuState {
@@ -69,8 +73,9 @@ impl GpuState {
         surface.configure(&device, &config);
 
         let renderer = nies_ui::NesRenderer::new(&device, &queue, config.format);
-        let nes =
-            nies_core::Nes::from_rom_bytes(nies_core::demo_rom_bytes()).expect("demo ROM builds");
+        let nes = Box::new(
+            nies_core::Nes::from_rom_bytes(nies_core::demo_rom_bytes()).expect("demo ROM builds"),
+        );
 
         Self {
             surface,

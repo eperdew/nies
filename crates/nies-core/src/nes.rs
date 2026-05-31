@@ -44,6 +44,12 @@ impl Nes {
     /// Run the CPU until the PPU completes one frame. Executes whole
     /// instructions; the boundary is the first instruction that pushes
     /// the PPU frame counter over.
+    ///
+    /// Because we stop on an instruction boundary rather than mid-instruction,
+    /// the terminating instruction may run a handful of PPU dots past the
+    /// frame wrap, so up to a few pixels at the very start of row 0 can belong
+    /// to frame N+1. This is bounded (≪ one scanline), fully deterministic,
+    /// and captured by the golden hash; it is cosmetically invisible.
     pub fn run_frame(&mut self) {
         let target = self.bus.ppu.frames() + 1;
         while self.bus.ppu.frames() < target {

@@ -1,5 +1,5 @@
 //! `NesRenderer` — uploads the 256×240 palette-index framebuffer into an
-//! R8Uint texture and draws it through the palette-LUT shader, integer
+//! R8Unorm texture and draws it through the palette-LUT shader, integer
 //! scaled and centered. Platform-agnostic: owns GPU resources but not the
 //! surface, device, queue, or window — the binary passes those in.
 
@@ -14,6 +14,10 @@ pub struct NesRenderer {
 }
 
 impl NesRenderer {
+    /// Build the pipeline and resources for `target_format`. `_queue` is
+    /// accepted for interface symmetry (and so a future renderer that uploads
+    /// initial GPU data at construction needs no signature change); the LUT is
+    /// uploaded via `create_buffer_init`, so it is unused today.
     pub fn new(
         device: &wgpu::Device,
         _queue: &wgpu::Queue,

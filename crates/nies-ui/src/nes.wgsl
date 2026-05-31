@@ -1,7 +1,8 @@
 // Fullscreen-triangle palette-LUT shader.
 // Vertex stage emits an oversized triangle covering the viewport.
-// Fragment stage reads the palette index from an R8Uint texture and
-// looks the RGB up in a 64-entry uniform LUT.
+// Fragment stage reads the palette index from an R8Unorm texture (the
+// normalized byte is recovered as round(v * 255)) and looks the RGB up in
+// a 64-entry uniform LUT.
 
 struct Palette {
     colors: array<vec4<f32>, 64>,

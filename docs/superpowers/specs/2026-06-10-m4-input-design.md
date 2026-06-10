@@ -289,3 +289,13 @@ Anticipated unit breakdown (the implementation plan finalizes this):
 - None of the global spec §9 open questions are touched by M4. The §8 M4
   milestone entry gains a completion note when the milestone lands (final
   unit), recording the keyboard-only scope decision (gamepad → M10).
+
+## 10. Addendum (added during implementation)
+
+- **Interim frame pacer.** The manual SMB1 gate surfaced that M3's
+  vsync-driven pacing runs the emulator at display refresh rate — 2×
+  speed on 120 Hz ProMotion displays. M4 added `nies-ui::pacing::FramePacer`
+  (platform-free; timestamps in as f64 ms — `Instant` native,
+  `performance.now()` web): wall-clock accumulation runs emulated frames
+  at NTSC 60.0988 Hz while rendering continues every vsync, stalls clamped
+  to 3 frames/redraw. Interim until M5's audio-driven pacing replaces it.

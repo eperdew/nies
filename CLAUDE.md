@@ -1,11 +1,11 @@
 # Project context for Claude
 
-`nies` is a Rust NES emulator. Current state: end of milestone M0 (project skeleton merged), M1 in progress on branch `m1-cpu-cartridge` (CPU + cartridge + test infrastructure).
+`nies` is a Rust NES emulator. Current state: M4 (input) complete — CPU, PPU, frontend rendering, and keyboard input are done; next is M5 (APU + audio).
 
 ## Authoritative documents
 
 - **Design spec:** [`docs/superpowers/specs/2026-05-02-nes-emulator-design.md`](docs/superpowers/specs/2026-05-02-nes-emulator-design.md). Architecture decisions, milestone roadmap, accuracy tier (tier 2 / bus-tick), crate audit. Update via the brainstorming skill if scope or architecture changes.
-- **Implementation plans:** `docs/superpowers/plans/`. Each milestone gets its own plan written incrementally (we don't pre-write all of them). Active plan: `2026-05-02-m1-cpu-cartridge.md`.
+- **Implementation plans:** `docs/superpowers/plans/`. Each milestone gets its own plan written incrementally (we don't pre-write all of them). Most recent: `2026-06-10-m4-input.md` (complete); M5 has no plan yet.
 
 ## Workspace layout
 
@@ -121,7 +121,7 @@ CI is the merge gate. Don't merge if any job is red. The fmt/clippy `-D warnings
 - **`wgpu` 29.0.x API differences from older docs.** `Instance::new` takes the `InstanceDescriptor` **by value** (use `InstanceDescriptor::new_without_display_handle_from_env()`); `Surface::get_current_texture` returns `CurrentSurfaceTexture` enum (not `Result`); `RenderPassColorAttachment` requires `depth_slice: None`; `RenderPassDescriptor` requires `multiview_mask: None`; `RenderPipelineDescriptor` uses `multiview_mask` (renamed from `multiview`); `PipelineLayoutDescriptor` replaced `push_constant_ranges` with `immediate_size: u32` and takes `bind_group_layouts: &[Option<&BindGroupLayout>]`. See `crates/nies-app/src/main.rs` and `crates/nies-ui/src/renderer.rs` for canonical setups.
 - **Box large core structs in the frontends (M3+).** `Nes` is ~66 KB (the PPU framebuffer is an inline `[u8; 256*240]`). Moving it **by value** through winit's event loop / `spawn_local` (e.g. inside `UserEvent::GpuReady(GpuState)`) overflows the wasm **~1 MB shadow stack** (debug builds use far more stack than release), which the browser reports as `RuntimeError: Out of bounds memory access` — not a Rust panic. Store it as `Box<Nes>` in `GpuState` (both `nies-app` and `nies-web` do, for parity). Native's 8 MB stack hides this, so it only bites on WASM.
 - **Upload the PPU framebuffer as `R8Unorm`, not `R8Uint`.** Integer textures (`texture_2d<u32>` + `textureLoad`) render **black** under the WebGL/WebGPU browser backends, even though they work on native Metal/Vulkan. Store each palette index as a normalized byte and recover it in WGSL via `u32(round(v * 255.0)) & 63u`. The golden framebuffer hash is over palette **indices** in the core, so the texture format is render-only and never affects the gate. See `crates/nies-ui/src/{renderer.rs,nes.wgsl}`.
-- **Cross-platform state hashes must use `Hasher::write`, not `.hash()`.** For any determinism gate compared across native and wasm32 (M3 framebuffer hash now; M7/M8 save-state + replay hashes per spec §4.6), hash raw bytes with `h.write(&bytes)` — **never** `slice.hash(&mut h)` / `#[derive(Hash)]`. The slice/array `Hash` impl prepends a `usize` **length prefix**, and `usize` is 8 bytes on 64-bit native but **4 bytes on wasm32**, so `.hash()` produces a different value per pointer width *even for byte-identical data*. `DefaultHasher`'s SipHash internals (u64, little-endian) are otherwise platform-independent. This bit the M3 wasm golden gate; the core itself was deterministic. See `crates/nies-core/tests/ppu_determinism.rs`.
+- **Cross-platform state hashes must use `Hasher::write`, not `.hash()`.** For any determinism gate compared across native and wasm32 (M3 framebuffer hash now; M7/M8 save-state + replay hashes per spec §4.6), hash raw bytes with `h.write(&bytes)` — **never** `slice.hash(&mut h)` / `#[derive(Hash)]`. The slice/array `Hash` impl prepends a `usize` **length prefix**, and `usize` is 8 bytes on 64-bit native but **4 bytes on wasm32**, so `.hash()` produces a different value per pointer width *even for byte-identical data*. `DefaultHasher`'s SipHash internals (u64, little-endian) are otherwise platform-independent. This bit the M3 wasm golden gate; the core itself was deterministic. See `crates/nies-core/tests/ppu_determinism.rs`. Note: both pinned golden hashes (`GOLDEN_FB_HASH` in `ppu_determinism.rs`, `GOLDEN_INPUT_HASH` in `input_determinism.rs` + their wasm twins in `crates/nies-web/tests/determinism_wasm.rs`) encode pre-M5 instruction-boundary NMI timing and get **re-pinned when M5's per-cycle interrupt polling lands** — both test files document this.
 - **`Bus::peek` for debugger inspection** uses an `unsafe` cast to call `&mut self` mapper methods from a `&self` context. Safe at M1 (NROM is read-side-effect-free); revisit when stateful mappers land.
 - **Workspace `members` list and crate-creation order.** Cargo eagerly validates the manifest before applying `-p` filtering. If you need to create a crate that isn't in `members` yet, add it to the list AND create the directory in the same commit. Never list non-existent members.
 - **`bincode` is deprecated** (Dec 2025; maintainer ceased due to harassment). We use **`postcard`** for save state serialization (M7+). Don't add bincode.
@@ -137,14 +137,13 @@ Per the user's preference (option ii from M1 mid-stream check-in):
 
 ## What's intentionally NOT in scope (current milestone)
 
-For M1 specifically:
-- PPU register effects (read clear, PPUDATA buffer) — M2.
-- APU sample generation — M5.
-- Controller strobe/shift register — M4.
-- All non-NROM mappers — M11+ post-v1.
+For M5 specifically (next up):
+- Gamepad input + rebinding UI — M10.
+- Volume/mute UI — M10 (M5 ships the hooks only).
 - Save state machinery (postcard wire format with header) — M7.
+- Replay/journal consumption — M8 (M4's input log is record-only).
 - Debugger UI panels — M9.
-- Snapshot/restore round-trip integration — M7.
+- All non-NROM mappers — M11+ post-v1.
 
-The trait shapes are designed against these later milestones (e.g., `Bus::tick`'s DMC fetch service path is wired but inert; `MapperImpl` has `notify_a12` with default no-op for MMC3-readiness). When working on M1, **don't preempt later milestones** — placeholder shapes are deliberate.
+The trait shapes are designed against these later milestones (e.g., `Bus::tick`'s DMC fetch service path is wired but inert; `MapperImpl` has `notify_a12` with default no-op for MMC3-readiness). When working on a milestone, **don't preempt later milestones** — placeholder shapes are deliberate.
 

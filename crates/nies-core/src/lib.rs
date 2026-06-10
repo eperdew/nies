@@ -8,6 +8,7 @@ pub mod bus;
 pub mod cartridge;
 pub mod cpu;
 pub mod input;
+pub mod input_demo;
 pub mod mapper;
 pub mod nes;
 pub mod ppu;

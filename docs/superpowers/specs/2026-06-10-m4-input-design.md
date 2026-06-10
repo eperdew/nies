@@ -292,6 +292,11 @@ Anticipated unit breakdown (the implementation plan finalizes this):
 
 ## 10. Addendum (added during implementation)
 
+- **`KeyboardState::on_key` signature.** §5 sketches
+  `on_key(&winit::event::KeyEvent)`; implemented as
+  `on_key(PhysicalKey, ElementState, repeat: bool)` because `KeyEvent` is
+  `#[non_exhaustive]` and cannot be constructed in unit tests. Behavior
+  is as specified.
 - **Interim frame pacer.** The manual SMB1 gate surfaced that M3's
   vsync-driven pacing runs the emulator at display refresh rate — 2×
   speed on 120 Hz ProMotion displays. M4 added `nies-ui::pacing::FramePacer`

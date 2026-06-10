@@ -17,6 +17,7 @@ pub mod snapshot;
 pub use bus::{Bus, BusLike};
 pub use cartridge::{Cartridge, CartridgeError, Mirroring, NesFormat};
 pub use cpu::Cpu;
+pub use input::{Buttons, Controller};
 pub use mapper::{MapperImpl, MapperKind};
 pub use nes::{Nes, demo_rom_bytes};
 pub use ppu::Ppu;

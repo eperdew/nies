@@ -82,6 +82,7 @@ Triggers on push to `main`/`master` and on pull requests. Feature branches need 
 
 - ✅ Push freely to feature branches (`m1-cpu-cartridge`, future `m2-…`, etc.) — these drive draft PRs and CI.
 - ✅ Push to `master` only when the user has explicitly said to do so for the current change.
+- ✅ **Standing exception (granted 2026-06-10): milestone spec/plan docs.** Commit a new milestone's design spec and implementation plan directly to `master` and push, *before* cutting the milestone's feature branch. The user prefers the docs to land on `master` first; the feature branch then starts from them.
 - ❌ Don't push to `master` as a side effect of "establishing the remote," "syncing branches," "cleaning up," etc.
 
 Merging a feature branch into `master` locally is fine; the resulting `master` push must still be explicitly authorized.

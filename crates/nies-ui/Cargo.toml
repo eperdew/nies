@@ -11,6 +11,7 @@ nies-core = { path = "../nies-core" }
 log.workspace = true
 wgpu = { version = "29", default-features = false, features = ["wgsl"] }
 bytemuck = "1"
+winit = "0.30"
 
 [lints.rust]
 unused_must_use = "deny"

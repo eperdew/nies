@@ -722,6 +722,16 @@ Two NES controllers driven from keyboard/gamepad; deterministic.
 
 **Gate:** Predefined input sequence applied to a test ROM produces same state hash on every run. Manual: SMB1 boots, title responds, level 1-1 plays visually correctly (silent).
 
+> **Status (M4 complete):** `Controller` 4021 shift register; `$4016`/`$4017`
+> wired with open-bus upper bits; `Nes::set_buttons` applies + journals
+> `InputEvent`s (apply-immediately + journal). Keyboard-only at M4 — gamepad
+> and rebinding deferred to M10 per the M4 design spec. Gate: scripted
+> micro-ROM state hash pinned natively and on wasm32; SMB1 1-1 verified
+> manually. M4 also added an interim wall-clock `FramePacer` (`nies-ui`) so
+> >60 Hz displays don't run at 2× speed — replaced by audio-driven pacing
+> at M5. See
+> [`2026-06-10-m4-input-design.md`](2026-06-10-m4-input-design.md).
+
 ### M5 — APU + audio
 
 Sound works; pacing switches to audio-driven.

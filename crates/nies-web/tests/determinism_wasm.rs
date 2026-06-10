@@ -1,6 +1,8 @@
-//! Cross-platform determinism gate: the demo_ntsc index framebuffer hashes
-//! to the same pinned constant under wasm32 as it does natively
-//! (crates/nies-core/tests/ppu_determinism.rs). Proves nies-core is
+//! Cross-platform determinism gates: nies-core produces the same pinned
+//! constants under wasm32 as it does natively. M3: the demo_ntsc index
+//! framebuffer hash (crates/nies-core/tests/ppu_determinism.rs). M4: the
+//! scripted input-demo state hash
+//! (crates/nies-core/tests/input_determinism.rs). Proves nies-core is
 //! bit-identical on the web target. Run via:
 //!   wasm-pack test --headless --chrome crates/nies-web
 
@@ -29,5 +31,18 @@ fn demo_ntsc_framebuffer_matches_golden_hash_on_wasm() {
         h.finish(),
         GOLDEN_FB_HASH,
         "wasm framebuffer hash != native golden"
+    );
+}
+
+/// M4 input determinism gate. MUST match GOLDEN_INPUT_HASH in
+/// crates/nies-core/tests/input_determinism.rs.
+const GOLDEN_INPUT_HASH: u64 = 0x94A4_5621_A5A7_FCF4;
+
+#[wasm_bindgen_test]
+fn input_demo_matches_golden_hash_on_wasm() {
+    assert_eq!(
+        nies_core::input_demo::run_and_hash(),
+        GOLDEN_INPUT_HASH,
+        "wasm input-demo state hash != native golden"
     );
 }

@@ -27,6 +27,7 @@ struct GpuState {
     // wasm shadow stack on every move.
     nes: Box<nies_core::Nes>,
     keyboard: nies_ui::input::KeyboardState,
+    pacer: nies_ui::pacing::FramePacer,
 }
 
 impl GpuState {
@@ -86,6 +87,7 @@ impl GpuState {
             renderer,
             nes,
             keyboard: nies_ui::input::KeyboardState::default(),
+            pacer: nies_ui::pacing::FramePacer::new(),
         }
     }
 
@@ -118,7 +120,14 @@ impl GpuState {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        self.nes.run_frame();
+        let now_ms = web_sys::window()
+            .and_then(|w| w.performance())
+            .map(|p| p.now())
+            .unwrap_or(0.0); // no Performance API: pacer sees a frozen
+        // clock and runs 0 frames after the first
+        for _ in 0..self.pacer.frames_due(now_ms) {
+            self.nes.run_frame();
+        }
         self.renderer.upload_frame(&self.queue, self.nes.frame());
         let mut encoder = self
             .device

@@ -5,6 +5,7 @@
 //! helpers. egui debugger panels and settings UI land in later milestones.
 
 pub mod input;
+pub mod pacing;
 pub mod palette;
 pub mod renderer;
 pub mod scaling;

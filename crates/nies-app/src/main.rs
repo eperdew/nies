@@ -21,6 +21,8 @@ struct GpuState {
     // (inline PPU framebuffer) by value overflows the wasm shadow stack.
     nes: Box<nies_core::Nes>,
     keyboard: nies_ui::input::KeyboardState,
+    pacer: nies_ui::pacing::FramePacer,
+    started: std::time::Instant,
 }
 
 impl GpuState {
@@ -75,6 +77,8 @@ impl GpuState {
             renderer,
             nes,
             keyboard: nies_ui::input::KeyboardState::default(),
+            pacer: nies_ui::pacing::FramePacer::new(),
+            started: std::time::Instant::now(),
         }
     }
 
@@ -107,7 +111,10 @@ impl GpuState {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        self.nes.run_frame();
+        let now_ms = self.started.elapsed().as_secs_f64() * 1000.0;
+        for _ in 0..self.pacer.frames_due(now_ms) {
+            self.nes.run_frame();
+        }
         self.renderer.upload_frame(&self.queue, self.nes.frame());
         let mut encoder = self
             .device

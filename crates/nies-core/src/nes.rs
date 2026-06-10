@@ -6,6 +6,7 @@
 use crate::bus::Bus;
 use crate::cartridge::{Cartridge, CartridgeError};
 use crate::cpu::Cpu;
+use crate::input::{Buttons, InputEvent};
 use crate::mapper::MapperKind;
 
 /// Top-level NES driver: owns the CPU and the bus (which owns PPU, APU,
@@ -15,6 +16,10 @@ use crate::mapper::MapperKind;
 pub struct Nes {
     cpu: Cpu,
     bus: Bus,
+    /// Journal of every input event applied since power-on, in apply
+    /// order. Passive at M4 — nothing reads it during execution; M8
+    /// replay walks it through the same apply primitive.
+    input_log: Vec<InputEvent>,
 }
 
 impl Nes {
@@ -27,7 +32,11 @@ impl Nes {
         let mut bus = Bus::new(mapper);
         let mut cpu = Cpu::new();
         cpu.reset(&mut bus);
-        Ok(Self { cpu, bus })
+        Ok(Self {
+            cpu,
+            bus,
+            input_log: Vec::new(),
+        })
     }
 
     /// The current frame's palette-index framebuffer (one byte per pixel,
@@ -62,6 +71,37 @@ impl Nes {
     pub fn reset(&mut self) {
         self.cpu.reset(&mut self.bus);
     }
+
+    /// Apply a controller state change now: stamp it with the current
+    /// master cycle, set the live controller state, and append it to the
+    /// input journal. The single input primitive — frontends call it
+    /// between frames; M8 replay re-issues journal entries through it.
+    ///
+    /// `port` must be 0 or 1 (debug-asserted; out-of-range is a
+    /// programmer error and is ignored in release builds).
+    pub fn set_buttons(&mut self, port: u8, buttons: Buttons) {
+        debug_assert!(port < 2, "controller port must be 0 or 1, got {port}");
+        let Some(controller) = self.bus.controllers.get_mut(port as usize) else {
+            return;
+        };
+        controller.set_buttons(buttons);
+        self.input_log.push(InputEvent {
+            cycle: self.bus.cycle,
+            port,
+            buttons,
+        });
+    }
+
+    /// The input journal, in apply order.
+    pub fn input_log(&self) -> &[InputEvent] {
+        &self.input_log
+    }
+
+    /// CPU RAM ($0000-$07FF), read-only. For the determinism gates and
+    /// the debugger (M9).
+    pub fn ram(&self) -> &[u8; crate::bus::CPU_RAM_BYTES] {
+        &self.bus.ram
+    }
 }
 
 /// Bytes of the bundled `nmi_sync/demo_ntsc.nes` test ROM. Single source
@@ -77,6 +117,7 @@ pub fn demo_rom_bytes() -> &'static [u8] {
 mod tests {
     use super::*;
     use crate::cartridge::Cartridge;
+    use crate::input::{Buttons, InputEvent};
 
     #[test]
     fn demo_rom_parses_as_cartridge() {
@@ -115,5 +156,65 @@ mod tests {
             nes.run_frame();
         }
         assert_eq!(nes.frame_count(), 10);
+    }
+
+    #[test]
+    fn set_buttons_applies_and_journals() {
+        let mut nes = Nes::from_rom_bytes(demo_rom_bytes()).expect("build Nes");
+        nes.run_frame();
+        let cycle = nes.bus.cycle; // set_buttons itself must not tick
+        nes.set_buttons(0, Buttons::A | Buttons::START);
+        assert_eq!(
+            nes.bus.controllers[0].buttons(),
+            Buttons::A | Buttons::START
+        );
+        assert_eq!(
+            nes.input_log(),
+            &[InputEvent {
+                cycle,
+                port: 0,
+                buttons: Buttons::A | Buttons::START,
+            }]
+        );
+        assert_eq!(nes.bus.cycle, cycle);
+    }
+
+    #[test]
+    fn events_carry_full_state_not_deltas() {
+        let mut nes = Nes::from_rom_bytes(demo_rom_bytes()).expect("build Nes");
+        nes.set_buttons(0, Buttons::A);
+        nes.set_buttons(0, Buttons::B); // full replacement: A is now released
+        assert_eq!(nes.bus.controllers[0].buttons(), Buttons::B);
+        assert_eq!(nes.input_log().len(), 2);
+        assert_eq!(nes.input_log()[1].buttons, Buttons::B);
+    }
+
+    #[test]
+    fn ports_are_independent() {
+        let mut nes = Nes::from_rom_bytes(demo_rom_bytes()).expect("build Nes");
+        nes.set_buttons(0, Buttons::A);
+        nes.set_buttons(1, Buttons::SELECT);
+        assert_eq!(nes.bus.controllers[0].buttons(), Buttons::A);
+        assert_eq!(nes.bus.controllers[1].buttons(), Buttons::SELECT);
+        assert_eq!(nes.input_log()[1].port, 1);
+    }
+
+    #[test]
+    fn journal_cycles_are_monotonic_across_frames() {
+        let mut nes = Nes::from_rom_bytes(demo_rom_bytes()).expect("build Nes");
+        nes.set_buttons(0, Buttons::A);
+        nes.run_frame();
+        nes.set_buttons(0, Buttons::default());
+        let log = nes.input_log();
+        assert_eq!(log.len(), 2);
+        assert!(log[0].cycle < log[1].cycle);
+    }
+
+    #[test]
+    fn ram_accessor_exposes_cpu_ram() {
+        let nes = Nes::from_rom_bytes(demo_rom_bytes()).expect("build Nes");
+        assert_eq!(nes.ram().len(), crate::bus::CPU_RAM_BYTES);
+        // Mesen power-on pattern (spec §4.2) visible through the accessor.
+        assert_eq!(nes.ram()[0x0008], 0xF7);
     }
 }

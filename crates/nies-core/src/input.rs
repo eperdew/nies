@@ -48,6 +48,19 @@ impl std::ops::BitOr for Buttons {
     }
 }
 
+/// One journaled input change: at master cycle `cycle`, controller `port`
+/// was set to `buttons`. Events carry the **full state, not a delta**, so
+/// any prefix of the journal replays correctly (spec 2026-06-10 §4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InputEvent {
+    /// `Bus::cycle` (master CPU cycle counter) when the event was applied.
+    pub cycle: u64,
+    /// Controller port, 0 or 1.
+    pub port: u8,
+    /// Full button state after this event.
+    pub buttons: Buttons,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Controller {
     /// Live button state, updated by `Nes::set_buttons`.

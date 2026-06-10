@@ -50,17 +50,18 @@ impl Bus {
     }
 
     /// Read without ticking and without side effects. For debugger
-    /// inspection (M9). Register-mapped addresses ($2000-$3FFF PPU,
-    /// $4000-$401F APU + I/O) return open-bus instead of triggering real
-    /// hardware reads. Stateful-mapper read side effects are skipped via
-    /// `MapperImpl::cpu_peek`.
+    /// inspection (M9). Most register-mapped addresses ($2000-$3FFF PPU,
+    /// $4000-$4015 APU) return open-bus instead of triggering real hardware
+    /// reads. $4016/$4017 return the current controller shift-register bit
+    /// non-destructively (via `Controller::peek`). Stateful-mapper read
+    /// side effects are skipped via `MapperImpl::cpu_peek`.
     pub fn peek(&self, addr: u16) -> u8 {
         match addr {
             0x0000..=0x1FFF => self.ram[(addr & 0x07FF) as usize],
             0x2000..=0x3FFF => self.open_bus,
             0x4000..=0x4015 => self.open_bus,
-            0x4016 => 0,
-            0x4017 => 0,
+            0x4016 => 0x40 | self.controllers[0].peek(),
+            0x4017 => 0x40 | self.controllers[1].peek(),
             0x4018..=0x401F => self.open_bus,
             0x4020..=0xFFFF => self.mapper.cpu_peek(addr),
         }
@@ -132,8 +133,8 @@ impl Bus {
             0x0000..=0x1FFF => self.ram[(addr & 0x07FF) as usize],
             0x2000..=0x3FFF => self.ppu.cpu_read(&mut self.mapper, addr),
             0x4000..=0x4015 => self.open_bus, // APU registers: M5
-            0x4016 => 0,                      // Controller 1: M4 will fill in
-            0x4017 => 0,                      // Controller 2 / APU frame counter: M4/M5
+            0x4016 => 0x40 | self.controllers[0].read(),
+            0x4017 => 0x40 | self.controllers[1].read(),
             0x4018..=0x401F => self.open_bus, // CPU test mode (unused on retail NES)
             0x4020..=0xFFFF => self.mapper.cpu_read(addr),
         }
@@ -260,6 +261,7 @@ impl BusLike for Bus {
 mod tests {
     use super::*;
     use crate::cartridge::{Cartridge, Mirroring, NesFormat};
+    use crate::input::Buttons;
 
     fn fake_bus() -> Bus {
         let cart = Cartridge {
@@ -380,5 +382,41 @@ mod tests {
         let _ = bus.peek(0x0000);
         // peek takes &self; cycle_before still valid from before
         assert_eq!(bus.cycle, cycle_before);
+    }
+
+    #[test]
+    fn controller_read_has_open_bus_upper_bits() {
+        let mut bus = fake_bus();
+        bus.controllers[0].set_buttons(Buttons::A);
+        bus.write(0x4016, 1);
+        bus.write(0x4016, 0);
+        assert_eq!(bus.read(0x4016), 0x41); // 0x40 | A pressed
+        assert_eq!(bus.read(0x4016), 0x40); // 0x40 | B released
+    }
+
+    #[test]
+    fn strobe_write_latches_both_ports() {
+        let mut bus = fake_bus();
+        bus.controllers[0].set_buttons(Buttons::A);
+        bus.controllers[1].set_buttons(Buttons::START);
+        bus.write(0x4016, 1);
+        bus.write(0x4016, 0);
+        // Port 0: A, B, Select, Start = 1, 0, 0, 0
+        let p0: Vec<u8> = (0..4).map(|_| bus.read(0x4016) & 1).collect();
+        assert_eq!(p0, vec![1, 0, 0, 0]);
+        // Port 1: A, B, Select, Start = 0, 0, 0, 1
+        let p1: Vec<u8> = (0..4).map(|_| bus.read(0x4017) & 1).collect();
+        assert_eq!(p1, vec![0, 0, 0, 1]);
+    }
+
+    #[test]
+    fn controller_peek_is_nondestructive() {
+        let mut bus = fake_bus();
+        bus.controllers[0].set_buttons(Buttons::A);
+        bus.write(0x4016, 1);
+        bus.write(0x4016, 0);
+        assert_eq!(bus.peek(0x4016), 0x41);
+        assert_eq!(bus.peek(0x4016), 0x41); // repeated peeks agree
+        assert_eq!(bus.read(0x4016), 0x41); // the real read still sees bit A
     }
 }

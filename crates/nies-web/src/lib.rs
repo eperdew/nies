@@ -26,6 +26,7 @@ struct GpuState {
     // GpuReady event / spawn_local future doesn't push 66 KB across the
     // wasm shadow stack on every move.
     nes: Box<nies_core::Nes>,
+    keyboard: nies_ui::input::KeyboardState,
 }
 
 impl GpuState {
@@ -84,6 +85,7 @@ impl GpuState {
             config,
             renderer,
             nes,
+            keyboard: nies_ui::input::KeyboardState::default(),
         }
     }
 
@@ -211,6 +213,21 @@ impl ApplicationHandler<UserEvent> for App {
             WindowEvent::Occluded(false) => {
                 if let Some(w) = &self.window {
                     w.request_redraw();
+                }
+            }
+            WindowEvent::KeyboardInput { event, .. } => {
+                if let Some(state) =
+                    gpu.keyboard
+                        .on_key(event.physical_key, event.state, event.repeat)
+                {
+                    gpu.nes.set_buttons(0, state);
+                }
+            }
+            WindowEvent::Focused(false) => {
+                // Key-up events won't arrive while unfocused; release
+                // everything so buttons don't stick across focus loss.
+                if let Some(state) = gpu.keyboard.release_all() {
+                    gpu.nes.set_buttons(0, state);
                 }
             }
             _ => {}
